@@ -7,6 +7,7 @@ class Tokenizer:
     """
     WORD_SPECIAL = ['\\', '/', '-', '_', '&', '.'] # special chars that can be part of a word
     PAGE_DIVIDER = '\f' # signifies end of page
+    PHRASE_CONNECTORS = {"of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs"} # used to connect words in phrases (not start/end)
 
     def __init__(self, page_offset):
         """
@@ -45,7 +46,7 @@ class Tokenizer:
                 self.word_spec = ""
             self.word += b
             return
-        
+
         # special char, add to spec buffer
         elif b in self.WORD_SPECIAL and self.word and not self.word_spec:
             self.word_spec += b
@@ -62,6 +63,10 @@ class Tokenizer:
                 # add to quote
                 if self.quoting:
                     self.quote += f" {w}" if self.quote else f"{w}"
+
+                # add to paren
+                if self.paren_depth > 0:
+                    self.parens += f" {w}" if self.parens else f"{w}" if not w in self.PHRASE_CONNECTORS else ""
 
             self.word = ""
             self.word_spec = ""
@@ -84,12 +89,32 @@ class Tokenizer:
                 self.quoting = True
 
         # parens
+        if b == "(":
+            # start parens
+            self.paren_depth += 1
 
+        elif b == ")":
+            # end parens
+            self.paren_depth -= 1
+
+            # flush paren buffer (end)
+            if self.parens and self.paren_depth == 0:
+                if self.page > 0:
+                    self.phrases[self.parens.lower()].add(self.page)
+
+                self.parens = ""
+
+        elif b == "," and self.paren_depth > 0:
+            # flush paren buffer (comma)
+            if self.parens:
+                if self.page > 0:
+                    self.phrases[self.parens.lower()].add(self.page)
+
+                self.parens = ""
 
         # new page
         if b == self.PAGE_DIVIDER:
             self.page += 1
-        
 
 
 
@@ -142,11 +167,12 @@ def main():
     print(f"    Size (Bytes)   : {len(data)}\n")
 
     # tokenize
-    print(f"    [+] Tokenizing:")
+    print(f"    [+] Tokenizing")
     tokenizer = Tokenizer(page_offset=offset)
     for b in data:
         tokenizer.process(b)
     print(f"        Words      : {len(tokenizer.words)}")
+    print(f"        Phrases    : {len(tokenizer.phrases)}")
 
 
     # TESTING
