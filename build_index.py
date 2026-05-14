@@ -7,7 +7,8 @@ class Tokenizer:
     """
     WORD_SPECIAL = ['\\', '/', '-', '_', '&', '.'] # special chars that can be part of a word
     PAGE_DIVIDER = '\f' # signifies end of page
-    PHRASE_CONNECTORS = {"of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs"} # used to connect words in phrases (not start/end)
+    PHRASE_CONNECTORS = ["of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs"] # used to connect words in phrases (not start/end)
+    PHRASE_SEPARATORS = [",", ";", ":", "–", "•", ".", "!", "?"]
 
     def __init__(self, page_offset):
         """
@@ -24,77 +25,144 @@ class Tokenizer:
         self.parens = ""
         self.paren_depth = 0
         self.phrase = ""
+        self.phrase_conn = ""
         self.page = 1 - page_offset
 
         # storage
         self.words = defaultdict(set) # word: pages
         self.phrases = defaultdict(set) # phrase: pages
 
-    def process(self, b:chr):
+    def _has_capital(self, word:str)->bool:
         """
-        Process a single character of input.
+        Check whether a word contains at least one uppercase letter.
 
         Args:
-            b (chr): Character to process.
+            word (str): Word to check.
+
+        Returns:
+            bool: True if the word contains an uppercase letter.
         """
-        b = chr(b)
+        for w in word:
+            if w.isupper():
+                return True
+        return False
+
+    def _process_word_char(self, b: str) -> bool:
+        """
+        Process characters that may belong to a word.
+
+        Returns:
+            bool: True if the character was consumed.
+        """
 
         # add to word buffer
         if b.isalnum():
             if self.word_spec:
                 self.word += self.word_spec
                 self.word_spec = ""
+
             self.word += b
-            return
+            return True
 
         # special char, add to spec buffer
         elif b in self.WORD_SPECIAL and self.word and not self.word_spec:
             self.word_spec += b
+            return True
+
+        return False
+
+    def _flush_word(self):
+        """
+        Flush the current word buffer into indexes and phrase buffers.
+        """
+        if not self.word:
             return
-        
-        # flush word buffer
-        if self.word:
-            if self.page > 0:
-                w = self.word.lower()
 
-                # add to words
-                self.words[w].add(self.page)
+        if self.page > 0:
+            w = self.word.lower()
 
-                # add to quote
-                if self.quoting:
-                    self.quote += f" {w}" if self.quote else f"{w}"
+            # add to words
+            self.words[w].add(self.page)
 
-                # add to paren
-                if self.paren_depth > 0:
-                    self.parens += f" {w}" if self.parens else f"{w}" if not w in self.PHRASE_CONNECTORS else ""
+            self._process_quote_word(w)
+            self._process_paren_word(w)
+            self._process_phrase_word(w)
 
-            self.word = ""
-            self.word_spec = ""
+        self.word = ""
+        self.word_spec = ""
 
-        # quote
-        if b == "\"":
-            # end quote
-            if self.quoting:
-                self.quoting = False
-                
-                # flush quote buffer
-                if self.quote:
-                    if self.page > 0:
-                        self.phrases[self.quote.lower()].add(self.page)
+    def _process_quote_word(self, w: str):
+        """
+        Add a word to the active quote buffer.
+        """
+        if self.quoting:
+            self.quote += f" {w}" if self.quote else w
 
-                    self.quote = ""
+    def _process_paren_word(self, w: str):
+        """
+        Add a word to the active parenthetical buffer.
+        """
+        if self.paren_depth > 0:
+            if w not in self.PHRASE_CONNECTORS:
+                self.parens += f" {w}" if self.parens else w
 
-            # start quote
-            else: 
-                self.quoting = True
+    def _process_phrase_word(self, w: str):
+        """
+        Process phrase construction logic for a word.
+        """
+        if self._has_capital(self.word):
+            if self.phrase and self.phrase_conn:
+                self.phrase += f" {self.phrase_conn}"
+                self.phrase_conn = ""
 
-        # parens
+            if w not in self.PHRASE_CONNECTORS:
+                self.phrase += f" {w}" if self.phrase else w
+
+        elif self.phrase and w in self.PHRASE_CONNECTORS:
+            self.phrase_conn += f" {w}" if self.phrase_conn else w
+
+        else:
+            self._flush_phrase()
+
+    def _flush_phrase(self):
+        """
+        Flush the current phrase buffer.
+        """
+        if self.phrase:
+            self.phrases[self.phrase].add(self.page)
+
+        self.phrase = ""
+        self.phrase_conn = ""
+
+    def _process_quotes(self, b: str):
+        """
+        Process quote state transitions.
+        """
+        if b != "\"":
+            return
+
+        # end quote
+        if self.quoting:
+            self.quoting = False
+
+            if self.quote:
+                if self.page > 0:
+                    self.phrases[self.quote.lower()].add(self.page)
+
+                self.quote = ""
+
+        # start quote
+        else:
+            self.quoting = True
+
+    def _process_parens(self, b: str):
+        """
+        Process parenthetical state transitions.
+        """
         if b == "(":
-            # start parens
             self.paren_depth += 1
 
         elif b == ")":
-            # end parens
             self.paren_depth -= 1
 
             # flush paren buffer (end)
@@ -112,12 +180,42 @@ class Tokenizer:
 
                 self.parens = ""
 
-        # new page
+    def _process_phrase_separator(self, b: str):
+        """
+        Flush phrase buffer on separator characters.
+        """
+        if self.phrase and b in self.PHRASE_SEPARATORS:
+            if self.page > 0:
+                self.phrases[self.phrase].add(self.page)
+
+            self.phrase = ""
+            self.phrase_conn = ""
+
+    def _process_page(self, b: str):
+        """
+        Process page divider characters.
+        """
         if b == self.PAGE_DIVIDER:
             self.page += 1
 
+    def process(self, b: int):
+        """
+        Process a single character of input.
 
+        Args:
+            b (int): Byte to process.
+        """
+        b = chr(b)
 
+        if self._process_word_char(b):
+            return
+
+        self._flush_word()
+
+        self._process_quotes(b)
+        self._process_parens(b)
+        self._process_phrase_separator(b)
+        self._process_page(b)
 
 
 
