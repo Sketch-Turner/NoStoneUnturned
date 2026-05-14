@@ -19,13 +19,15 @@ class Tokenizer:
         self.word = ""
         self.word_spec = ""
         self.quote = ""
+        self.quoting = False
         self.parens = ""
+        self.paren_depth = 0
         self.phrase = ""
         self.page = 1 - page_offset
 
         # storage
-        self.words = defaultdict(list) # word: pages
-        self.phrases = defaultdict(list) # phrase: pages
+        self.words = defaultdict(set) # word: pages
+        self.phrases = defaultdict(set) # phrase: pages
 
     def process(self, b:chr):
         """
@@ -49,16 +51,45 @@ class Tokenizer:
             self.word_spec += b
             return
         
-        # new page
-        if b == self.PAGE_DIVIDER:
-            self.page += 1
-
         # flush word buffer
         if self.word:
             if self.page > 0:
-                self.words[self.word.lower()].append(self.page)
+                w = self.word.lower()
+
+                # add to words
+                self.words[w].add(self.page)
+
+                # add to quote
+                if self.quoting:
+                    self.quote += f" {w}" if self.quote else f"{w}"
+
             self.word = ""
             self.word_spec = ""
+
+        # quote
+        if b == "\"":
+            # end quote
+            if self.quoting:
+                self.quoting = False
+                
+                # flush quote buffer
+                if self.quote:
+                    if self.page > 0:
+                        self.phrases[self.quote.lower()].add(self.page)
+
+                    self.quote = ""
+
+            # start quote
+            else: 
+                self.quoting = True
+
+        # parens
+
+
+        # new page
+        if b == self.PAGE_DIVIDER:
+            self.page += 1
+        
 
 
 
@@ -84,7 +115,7 @@ def read_file(filename)->bytes:
         print(f"    [!] Error reading file.")
     
     return data
-    
+
 
 ########################
 # MAIN
@@ -118,7 +149,11 @@ def main():
     print(f"        Words      : {len(tokenizer.words)}")
 
 
-    print(sorted(tokenizer.words.items())[:20])
+    # TESTING
+    # for w in sorted(tokenizer.words.items()):
+    #     print(w)
+    for p in sorted(tokenizer.phrases.items()):
+        print(p)
         
 if __name__ == "__main__":
     main()
