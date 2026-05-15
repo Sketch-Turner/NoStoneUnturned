@@ -196,16 +196,22 @@ class Tokenizer:
     PHRASE_CONNECTORS = ["of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs"] # used to connect words in phrases (not start/end)
     PHRASE_SEPARATORS = [",", ";", ":", "–", "•", ".", "!", "?"] # special chars that end a phrase
 
-    def __init__(self, page_offset:int=0, filter:WordFilter=None):
+    def __init__(self, page_offset:int=0, filter:WordFilter=None, mode=0):
         """
         Tokenizer Constructor.
 
         Args:
             page_offset (int): Starting page offset.
             filter (WordFilter): Rules defining valid words.
+            mode (int): Parsing mode based on file type.
+                0: TXT
+                1: PDF
         """
         # filter
         self.filter = filter
+
+        # mode
+        self.mode = mode
 
         # buffers
         self.word = ""
@@ -218,7 +224,7 @@ class Tokenizer:
         self.phrase_conn = ""
         self.page = 1 - page_offset
 
-        # storage
+        # words/phrases
         self.words = defaultdict(set) # word: pages
         self.phrases = defaultdict(set) # phrase: pages
 
@@ -409,7 +415,7 @@ class Tokenizer:
         if b == self.PAGE_DIVIDER:
             self.page += 1
 
-    def process(self, b: int):
+    def _process_byte(self, b: int):
         """
         Process a single character of input.
 
@@ -427,6 +433,24 @@ class Tokenizer:
         self._process_parens(b)
         self._process_phrase_separator(b)
         self._process_page(b)
+
+    def tokenize(self, data:bytes):
+        """
+        Tokenize input data according to the configured document mode.
+
+        Args:
+            data (bytes): Raw document data to tokenize.
+        """
+        # TXT
+        if self.mode == 0: 
+            for b in data:
+                self._process_byte(b)
+            self._process_byte(0x00) # flush buffer
+
+        # PDF
+        elif self.mode == 1:
+            #TODO
+            pass
 
 
 def read_file(filename)->bytes:
@@ -473,7 +497,9 @@ def main():
 
     # read file
     print(f"[+] Reading        : {input_file}")
+    filetype = 1 if input_file.upper().endswith("PDF") else 0
     data = read_file(filename=input_file)
+    print(f"    Mode           : {["TXT", "PDF"][filetype]}")
     print(f"    Size (Bytes)   : {len(data)}\n")
 
     # prepare filter
@@ -484,10 +510,8 @@ def main():
 
     # tokenize
     print(f"    [+] Tokenizing")
-    tokenizer = Tokenizer(page_offset=offset, filter=word_filter)
-    for b in data:
-        tokenizer.process(b)
-    tokenizer.process(0x00) # flush buffer
+    tokenizer = Tokenizer(page_offset=offset, filter=word_filter, mode=filetype)
+    tokenizer.tokenize(data)
     print(f"        Words      : {len(tokenizer.words)}")
     print(f"        Phrases    : {len(tokenizer.phrases)}\n")
 
