@@ -1,6 +1,192 @@
 from collections import defaultdict
 import argparse
 
+class WordFilter:
+    """
+    Configurable word validation system.
+
+    Words are validated against a sequence of filter rules.
+    Each rule maps to a corresponding internal filter method.
+    """
+    def __init__(self, pre_filters=[], post_filters=[], indent=8):
+        """
+        Initialize filter configuration.
+
+        Args:
+            pre_filters (list[tuple[str, any]]]):
+                Filters words before being added to index.
+                Sequence of filter rules in the form:
+                (filter_name, filter_parameter).
+            post_filters (list[tuple[str, any]]]):
+                Filters words after being added to index.
+                Sequence of filter rules in the form:
+                (filter_name, filter_parameter).
+            indent (int):
+                Number of spaces to indent when printing.
+        """
+        self.pre_filters = pre_filters
+        self.post_filters = post_filters
+        self.indent = indent
+
+    def build_from_argparse_args(self, args):
+        """
+        Build filter configuration from parsed argparse arguments.
+
+        Args:
+            args: Parsed argparse namespace containing filter options.
+        """
+        self.pre_filters = []
+        self.post_filters = []
+        # pre
+        if args.min_length:
+            self.pre_filters.append(("min_length", args.min_length))
+        if args.max_length:
+            self.pre_filters.append(("max_length", args.max_length))
+        # post
+        if args.min_frequency:
+            self.post_filters.append(("min_frequency", args.min_frequency))
+        if args.max_frequency:
+            self.post_filters.append(("max_frequency", args.max_frequency))
+
+    def __str__(self):
+        """
+        Return a formatted string representation of configured filters.
+
+        Returns:
+            str: Sorted list of filter names and parameters.
+        """
+        result = f"{' '*self.indent}Pre-filters:\n"
+        for filter_name, filter_param in sorted(self.pre_filters):
+            result += f"{' '*self.indent}    {filter_name}: {filter_param}\n"
+        result += f"{' '*self.indent}Post-filters:\n"
+        for filter_name, filter_param in sorted(self.post_filters):
+            result += f"{' '*self.indent}    {filter_name}: {filter_param}\n"
+        return result.strip('\n')
+
+    def prefilter(self, word: str) -> bool:
+        """
+        Check whether a word passes all configured pre-filters.
+
+        Args:
+            word (str): Word to validate.
+
+        Returns:
+            bool: True if the word passes all pre-filters.
+
+        Raises:
+            ValueError:
+                If a configured filter name does not match any available filter method.
+        """
+        for filter_name, filter_param in self.pre_filters:
+            func = getattr(self, f"_{filter_name}", None)
+
+            if func is None:
+                raise ValueError(f"Unknown filter: {filter_name}")
+
+            if not func(word, filter_param):
+                return False
+
+        return True
+
+    def postfilter(self, index: defaultdict[set]) -> defaultdict[set]:
+        """
+        Apply all configured post-processing filters to the index.
+
+        Each post-filter is looked up by name and executed in sequence.
+        Filters are expected to accept an index and return a modified index.
+
+        Args:
+            index (defaultdict[set]):
+                The index structure mapping keys to sets of values.
+
+        Returns:
+            defaultdict[set]:
+                The filtered/processed index after all post-filters have been applied.
+
+        Raises:
+            ValueError:
+                If a configured filter name does not match any available filter method.
+        """
+        for filter_name, filter_param in self.post_filters:
+            func = getattr(self, f"_{filter_name}", None)
+
+            if func is None:
+                raise ValueError(f"Unknown filter: {filter_name}")
+
+            index = func(index, filter_param)
+        return index
+
+    # pre-filters
+    def _min_length(self, word: str, length: int) -> bool:
+        """
+        Check whether a word meets the minimum length requirement.
+
+        Args:
+            word (str): Word to check.
+            length (int): Minimum allowed length.
+
+        Returns:
+            bool: True if the word length is valid.
+        """
+        return len(word) >= length
+
+    def _max_length(self, word: str, length: int) -> bool:
+        """
+        Check whether a word exceeds the maximum length limit.
+
+        Args:
+            word (str): Word to check.
+            length (int): Maximum allowed length.
+
+        Returns:
+            bool: True if the word length is valid.
+        """
+        return len(word) <= length
+
+    # post-filters
+    def _min_frequency(self, index: defaultdict[set], frequency:int) -> defaultdict[set]:
+        """
+        Removes words found on less than N pages.
+
+        Args:
+            index (defaultdict[set]):
+                Mapping of words to set of pages.
+            frequency (int):
+                Minimum number of occurrences required to keep a word.
+
+        Returns:
+            defaultdict[set]:
+                A filtered index containing only entries whose set size
+                is greater than or equal to the given frequency.
+        """
+        result = defaultdict(set)
+        for word, pages in index.items():
+            if len(pages) >= frequency:
+                result[word] = pages
+        return result
+    
+    def _max_frequency(self, index: defaultdict[set], frequency:int) -> defaultdict[set]:
+        """
+        Removes words found on more than N pages.
+
+        Args:
+            index (defaultdict[set]):
+                Mapping of words to set of pages.
+            frequency (int):
+                Maximum number of occurrences required to keep a word.
+
+        Returns:
+            defaultdict[set]:
+                A filtered index containing only entries whose set size
+                is greater than or equal to the given frequency.
+        """
+        result = defaultdict(set)
+        for word, pages in index.items():
+            if len(pages) <= frequency:
+                result[word] = pages
+        return result
+
+
 class Tokenizer:
     """
     Tokenizes text input and indexes words and phrases by page number.
@@ -8,16 +194,20 @@ class Tokenizer:
     WORD_SPECIAL = ['\\', '/', '-', '_', '&', '.'] # special chars that can be part of a word
     PAGE_DIVIDER = '\f' # signifies end of page
     PHRASE_CONNECTORS = ["of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs"] # used to connect words in phrases (not start/end)
-    PHRASE_SEPARATORS = [",", ";", ":", "–", "•", ".", "!", "?"]
+    PHRASE_SEPARATORS = [",", ";", ":", "–", "•", ".", "!", "?"] # special chars that end a phrase
 
-    def __init__(self, page_offset):
+    def __init__(self, page_offset:int=0, filter:WordFilter=None):
         """
         Tokenizer Constructor.
 
         Args:
             page_offset (int): Starting page offset.
+            filter (WordFilter): Rules defining valid words.
         """
-        # current
+        # filter
+        self.filter = filter
+
+        # buffers
         self.word = ""
         self.word_spec = ""
         self.quote = ""
@@ -46,6 +236,23 @@ class Tokenizer:
             if w.isupper():
                 return True
         return False
+
+    def _add_phrase(self, phrase:str, page:int):
+        """
+        Add a phrase occurrence to the phrase index.
+
+        If a filter is configured, the phrase is first checked using the pre-filter
+        before being added to the index.
+
+        Args:
+            phrase (str): The phrase to index.
+            page (int): The page number where the phrase occurs.
+        """
+        if self.filter:
+            if self.filter.prefilter(phrase):
+                self.phrases[phrase].add(page)
+        else:
+            self.phrases[phrase].add(page)
 
     def _process_word_char(self, b: str) -> bool:
         """
@@ -82,7 +289,11 @@ class Tokenizer:
             w = self.word.lower()
 
             # add to words
-            self.words[w].add(self.page)
+            if self.filter:
+                if self.filter.prefilter(self.word):
+                    self.words[w].add(self.page)
+            else:
+                self.words[w].add(self.page)
 
             self._process_quote_word(w)
             self._process_paren_word(w)
@@ -129,7 +340,7 @@ class Tokenizer:
         Flush the current phrase buffer.
         """
         if self.phrase:
-            self.phrases[self.phrase].add(self.page)
+            self._add_phrase(self.phrase, self.page)
 
         self.phrase = ""
         self.phrase_conn = ""
@@ -147,7 +358,7 @@ class Tokenizer:
 
             if self.quote:
                 if self.page > 0:
-                    self.phrases[self.quote.lower()].add(self.page)
+                    self._add_phrase(self.quote.lower(), self.page)
 
                 self.quote = ""
 
@@ -168,7 +379,7 @@ class Tokenizer:
             # flush paren buffer (end)
             if self.parens and self.paren_depth == 0:
                 if self.page > 0:
-                    self.phrases[self.parens.lower()].add(self.page)
+                    self._add_phrase(self.parens.lower(), self.page)
 
                 self.parens = ""
 
@@ -176,7 +387,7 @@ class Tokenizer:
             # flush paren buffer (comma)
             if self.parens:
                 if self.page > 0:
-                    self.phrases[self.parens.lower()].add(self.page)
+                    self._add_phrase(self.parens.lower(), self.page)
 
                 self.parens = ""
 
@@ -186,7 +397,7 @@ class Tokenizer:
         """
         if self.phrase and b in self.PHRASE_SEPARATORS:
             if self.page > 0:
-                self.phrases[self.phrase].add(self.page)
+                self._add_phrase(self.phrase, self.page)
 
             self.phrase = ""
             self.phrase_conn = ""
@@ -218,7 +429,6 @@ class Tokenizer:
         self._process_page(b)
 
 
-
 def read_file(filename)->bytes:
     """
     Read a file into memory.
@@ -248,35 +458,52 @@ def main():
     parser = argparse.ArgumentParser(description="Build index from TXT file.")
     parser.add_argument("input", help="Input TXT file")
     parser.add_argument("output", help="Output TXT file")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Print verbose output")
     parser.add_argument("-o", "--offset", type=int, default=0, help="Page number offset (default: 0)")
-    parser.add_argument("-f", "--max-frequency", type=int, default=None, help="Skip terms appearing on more than N pages")
-    parser.add_argument("-l", "--max-length", type=int, default=None, help="Skip terms greater than N characters")
+    parser.add_argument("-f", "--min-frequency", type=int, default=None, help="Skip terms appearing on less than N pages")
+    parser.add_argument("-F", "--max-frequency", type=int, default=None, help="Skip terms appearing on more than N pages")
+    parser.add_argument("-l", "--min-length", type=int, default=None, help="Skip terms less than N characters")
+    parser.add_argument("-L", "--max-length", type=int, default=None, help="Skip terms greater than N characters")
     args = parser.parse_args()
 
     input_file = args.input
     output_file = args.output
+    verbose_output = args.verbose
     offset = args.offset
-    max_frequency = args.max_frequency
-    max_len = args.max_length
 
     # read file
     print(f"[+] Reading        : {input_file}")
     data = read_file(filename=input_file)
     print(f"    Size (Bytes)   : {len(data)}\n")
 
+    # prepare filter
+    print(f"    [+] Preparing Filters")
+    word_filter = WordFilter()
+    word_filter.build_from_argparse_args(args)
+    print(f"{word_filter}\n")
+
     # tokenize
     print(f"    [+] Tokenizing")
-    tokenizer = Tokenizer(page_offset=offset)
+    tokenizer = Tokenizer(page_offset=offset, filter=word_filter)
     for b in data:
         tokenizer.process(b)
+    tokenizer.process(0x00) # flush buffer
     print(f"        Words      : {len(tokenizer.words)}")
-    print(f"        Phrases    : {len(tokenizer.phrases)}")
+    print(f"        Phrases    : {len(tokenizer.phrases)}\n")
+
+    # post-filter
+    print(f"    [+] Cleaning")
+    tokenizer.words = word_filter.postfilter(tokenizer.words)
+    tokenizer.phrases = word_filter.postfilter(tokenizer.phrases)
+    print(f"        Words      : {len(tokenizer.words)}")
+    print(f"        Phrases    : {len(tokenizer.phrases)}\n")
 
 
     # TESTING
-    # for w in sorted(tokenizer.words.items()):
-    #     print(w)
-    for p in sorted(tokenizer.phrases.items()):
+    for w in sorted(tokenizer.words.items())[-10:]:
+        print(w)
+    print()
+    for p in sorted(tokenizer.phrases.items())[-10:]:
         print(p)
         
 if __name__ == "__main__":
