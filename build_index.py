@@ -1,6 +1,10 @@
 from collections import defaultdict
 import argparse
 import re
+import nltk
+nltk.download('averaged_perceptron_tagger_eng', quiet=True)
+nltk.download('wordnet', quiet=True)
+from nltk.corpus import wordnet
 
 class WordFilter:
     """
@@ -38,6 +42,7 @@ class WordFilter:
         """
         self.pre_filters = []
         self.post_filters = []
+
         # pre
         if args.min_length:
             self.pre_filters.append(("min_length", args.min_length))
@@ -49,11 +54,24 @@ class WordFilter:
             self.pre_filters.append(("filter_UNCs", None))
         if args.no_filter_hex:
             self.pre_filters.append(("filter_hex", None))
+        if args.no_filter_mitre:
+            self.pre_filters.append(("filter_mitre", None))
+        if args.no_filter_handles:
+            self.pre_filters.append(("filter_handles", None))
+        if args.no_filter_emails:
+            self.pre_filters.append(("filter_emails", None))
+        if args.no_filter_nonalpha:
+            self.pre_filters.append(("filter_nonalpha", None))
+
         # post
         if args.min_frequency:
             self.post_filters.append(("min_frequency", args.min_frequency))
         if args.max_frequency:
             self.post_filters.append(("max_frequency", args.max_frequency))
+        if args.no_filter_modifiers:
+            self.post_filters.append(("filter_modifiers", None))
+        if args.no_filter_dictionary:
+            self.post_filters.append(("filter_dictionary", None))
 
     def __str__(self):
         """
@@ -106,7 +124,6 @@ class WordFilter:
         Apply all configured post-processing filters to the index.
 
         Each post-filter is looked up by name and executed in sequence.
-        Filters are expected to accept an index and return a modified index.
 
         Args:
             index (defaultdict[set]):
@@ -120,18 +137,60 @@ class WordFilter:
             ValueError:
                 If a configured filter name does not match any available filter method.
         """
-        for filter_name, filter_param in self.post_filters:
-            func = getattr(self, f"_{filter_name.lower()}", None)
+        result = defaultdict(set)
+        for word, pages in index.items():
+            valid = True
+            for filter_name, filter_param in self.post_filters:
+                func = getattr(self, f"_{filter_name.lower()}", None)
 
-            if func is None:
-                raise ValueError(f"Unknown filter: {filter_name}")
+                if func is None:
+                    raise ValueError(f"Unknown filter: {filter_name}")
 
-            if filter_param is None:
-                index = func(index)
-            else:
-                index = func(index, filter_param)
+                if filter_param is None:
+                    if not func((word, pages)):
+                        valid = False
+                        break
+                else:
+                    if not func((word, pages), filter_param):
+                        valid = False
+                        break
+            if valid:
+                result[word] = pages
             
-        return index
+        return result
+
+    def remove(self, filter_name: str) -> bool:
+        """
+        Remove a filter from either the pre-filter or post-filter list.
+
+        The search is case-insensitive and will remove the first matching
+        filter found in either collection.
+
+        Args:
+            filter_name (str): Name of the filter to remove.
+
+        Returns:
+            bool: True if a filter was found and removed, False otherwise.
+        """
+        found = None
+        for name, args in self.pre_filters:
+            if name.lower() == filter_name.lower():
+                found = (name, args)
+                break
+        if found:
+            self.pre_filters.remove(found)
+            return True
+
+        for name, args in self.post_filters:
+            if name.lower() == filter_name.lower():
+                found = (name, args)
+                break
+        if found:
+            self.post_filters.remove(found)
+            return True
+        
+        return False
+
 
     # pre-filters
     def _min_length(self, word: str, length: int) -> bool:
@@ -203,55 +262,133 @@ class WordFilter:
         """
         return not (re.match(r'^0x[0-9a-fA-F]+', word) or (re.match(r'^[0-9a-fA-F]{4,}', word) and not word.isalpha()))
 
+    def _filter_mitre(self, word: str) -> bool:
+        """
+        Reject MITRE ATT&CK technique identifiers.
+
+        Args:
+            word (str): Token to check.
+
+        Returns:
+            bool: True if the token is not a MITRE identifier.
+        """
+        return not re.fullmatch(r'^(t|ta|T|TA)[0-9]{4}', word)
+
+    def _filter_handles(self, word: str) -> bool:
+        """
+        Reject Twitter/X-style usernames and mentions.
+
+        Filters tokens beginning with '@' followed by one or more
+        word characters.
+
+        Args:
+            word (str): Token to check.
+
+        Returns:
+            bool: True if the token is not a Twitter/X-style mention.
+        """
+        return not word.startswith('@')
+
+    def _filter_emails(self, word: str) -> bool:
+        """
+        Reject email addresses.
+
+        Args:
+            word (str): Token to check.
+
+        Returns:
+            bool: True if the token is not an email address.
+        """
+        return not re.fullmatch(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', word)
+
+    def _filter_nonalpha(self, word: str) -> bool:
+        """
+        Reject tokens that do not contain any alphabetic characters.
+
+        Args:
+            word (str): Token to evaluate.
+
+        Returns:
+            bool: True if the token contains at least one letter.
+        """
+        return re.search(r'[a-zA-Z]', word)
+
     # post-filters
-    def _min_frequency(self, index: defaultdict[set], frequency:int) -> defaultdict[set]:
+    def _min_frequency(self, item:tuple[str, set], frequency:int) -> bool:
         """
-        Removes words found on less than N pages.
+        Filter items by minimum occurrence frequency.
 
         Args:
-            index (defaultdict[set]):
-                Mapping of words to set of pages.
-            frequency (int):
-                Minimum number of occurrences required to keep a word.
+            item (tuple[str, set]): A (word, pages) pair.
+            frequency (int): Minimum number of pages required.
 
         Returns:
-            defaultdict[set]:
-                A filtered index containing only entries whose set size
-                is greater than or equal to the given frequency.
+            bool: True if the item appears in at least N pages.
         """
-        result = defaultdict(set)
-        for word, pages in index.items():
-            if len(pages) >= frequency:
-                result[word] = pages
-        return result
+        pages = item[1]
+        return len(pages) >= frequency
     
-    def _max_frequency(self, index: defaultdict[set], frequency:int) -> defaultdict[set]:
+    def _max_frequency(self, item:tuple[str, set], frequency:int) -> bool:
         """
-        Removes words found on more than N pages.
+        Filter items by maximum occurrence frequency.
 
         Args:
-            index (defaultdict[set]):
-                Mapping of words to set of pages.
-            frequency (int):
-                Maximum number of occurrences required to keep a word.
+            item (tuple[str, set]): A (word, pages) pair.
+            frequency (int): Maximum number of pages allowed.
 
         Returns:
-            defaultdict[set]:
-                A filtered index containing only entries whose set size
-                is greater than or equal to the given frequency.
+            bool: True if the item appears in no more than N pages.
         """
-        result = defaultdict(set)
-        for word, pages in index.items():
-            if len(pages) <= frequency:
-                result[word] = pages
-        return result
+        pages = item[1]
+        return len(pages) <= frequency
 
+    def _filter_modifiers(self, item: tuple[str, set]) -> bool:
+        """
+        Keep only noun or verb tokens; allow all multi-word phrases.
+
+        Args:
+            item (tuple[str, set]): (word, pages)
+
+        Returns:
+            bool: True if word is a noun/verb or a phrase, False otherwise.
+        """
+        word = item[0]
+
+        # skip phrases
+        if " " in word:
+            return True
+
+        pos = nltk.pos_tag([word])[0][1]
+
+        return pos.startswith("NN") or pos.startswith("VB")
+
+    def _filter_dictionary(self, item: tuple[str, set]) -> bool:
+        """
+        Filter out valid dictionary words using WordNet.
+
+        Words are kept only if they are lowercase alphabetic strings
+        and appear in WordNet (i.e., have at least one synset).
+
+        Args:
+            item (tuple[str, set]): (word, pages)
+
+        Returns:
+            bool: True if the word should be kept, False if it is a valid
+            dictionary word and should be filtered out.
+        """
+        word = item[0]
+
+        # skip invalid words
+        if not re.fullmatch(r"[a-z]+", word):
+            return True
+        
+        return len(wordnet.synsets(word)) == 0
 
 class Tokenizer:
     """
     Tokenizes text input and indexes words and phrases by page number.
     """
-    WORD_SPECIAL = ['\\', '/', '-', '_', '&', '.', '@', '%', ':', '?', "="] # special chars that can be part of a word
+    WORD_SPECIAL = ['\\', '/', '-', '_', '&', '.', '@', '%', ':', '?', "=", "\'"] # special chars that can be part of a word
     PAGE_DIVIDER = '\f' # signifies end of page
     PHRASE_CONNECTORS = ["of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs"] # used to connect words in phrases (not start/end)
     PHRASE_SEPARATORS = [",", ";", ":", "–", "•", ".", "!", "?"] # special chars that end a phrase
@@ -298,10 +435,7 @@ class Tokenizer:
         Returns:
             bool: True if the word contains an uppercase letter.
         """
-        for w in word:
-            if w.isupper():
-                return True
-        return False
+        return not re.search(r'[A-Z]', word) is None
 
     def _add_phrase(self, phrase:str, page:int):
         """
@@ -349,6 +483,11 @@ class Tokenizer:
         
         # special char execptions for UNC paths
         elif b == "\\" and not self.word and (not self.word_spec or self.word_spec == "\\"):
+            self.word_spec += b
+            return True
+        
+        # special char exception for @handles
+        elif b == "@" and not self.word and not self.word_spec:
             self.word_spec += b
             return True
         
@@ -562,6 +701,12 @@ def main():
     parser.add_argument("-u", "--no-filter-urls", action="store_false", help="Don't remove URLs")
     parser.add_argument("-U", "--no-filter-uncs", action="store_false", help="Don't remove UNCs")
     parser.add_argument("-H", "--no-filter-hex", action="store_false", help="Don't remove hexidecimal strings")
+    parser.add_argument("-t", "--no-filter-handles", action="store_false", help="Don't remove Twitter/X style handles")
+    parser.add_argument("-e", "--no-filter-emails", action="store_false", help="Don't remove email addresses")
+    parser.add_argument("-m", "--no-filter-mitre", action="store_false", help="Don't remove MITRE ATT&CK codes")
+    parser.add_argument("-M", "--no-filter-modifiers", action="store_false", help="Don't remove non-noun/verb single word tokens")
+    parser.add_argument("-n", "--no-filter-nonalpha", action="store_false", help="Don't remove words with no letters")
+    parser.add_argument("-d", "--no-filter-dictionary", action="store_false", help="Don't remove uncapitalized single word tokens found in the english dictionary")
 
     args = parser.parse_args()
 
@@ -593,15 +738,22 @@ def main():
     # post-filter
     print(f"    [+] Cleaning")
     tokenizer.words = word_filter.postfilter(tokenizer.words)
+    tokenizer.filter.remove("filter_dictionary")
     tokenizer.phrases = word_filter.postfilter(tokenizer.phrases)
     print(f"        Words      : {len(tokenizer.words)}")
     print(f"        Phrases    : {len(tokenizer.phrases)}\n")
 
 
     # TESTING
+    for w in sorted(tokenizer.words.items())[:9]:
+        print(w)
+    print("...")
     for w in sorted(tokenizer.words.items())[-10:]:
         print(w)
     print()
+    for p in sorted(tokenizer.phrases.items())[:9]:
+        print(p)
+    print("...")
     for p in sorted(tokenizer.phrases.items())[-10:]:
         print(p)
         
