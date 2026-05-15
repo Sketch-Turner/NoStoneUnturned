@@ -1,5 +1,6 @@
 from collections import defaultdict
 import argparse
+import re
 
 class WordFilter:
     """
@@ -42,6 +43,10 @@ class WordFilter:
             self.pre_filters.append(("min_length", args.min_length))
         if args.max_length:
             self.pre_filters.append(("max_length", args.max_length))
+        if args.clean_urls:
+            self.pre_filters.append(("clean_urls", None))
+        if args.clean_uncs:
+            self.pre_filters.append(("clean_uncs", None))
         # post
         if args.min_frequency:
             self.post_filters.append(("min_frequency", args.min_frequency))
@@ -83,8 +88,12 @@ class WordFilter:
             if func is None:
                 raise ValueError(f"Unknown filter: {filter_name}")
 
-            if not func(word, filter_param):
-                return False
+            if filter_param is None:
+                if not func(word):
+                    return False
+            else:
+                if not func(word, filter_param):
+                    return False
 
         return True
 
@@ -113,7 +122,11 @@ class WordFilter:
             if func is None:
                 raise ValueError(f"Unknown filter: {filter_name}")
 
-            index = func(index, filter_param)
+            if filter_param is None:
+                index = func(index)
+            else:
+                index = func(index, filter_param)
+            
         return index
 
     # pre-filters
@@ -142,6 +155,33 @@ class WordFilter:
             bool: True if the word length is valid.
         """
         return len(word) <= length
+
+    def _clean_urls(self, word: str) -> bool:
+        """
+        Determine whether a token should be rejected as a URL-like string.
+
+        This filter returns True for words that are NOT valid URLs, and False
+        for strings that match a URL pattern (e.g. http://, https://, www.).
+
+        Args:
+            word (str): Token to evaluate.
+
+        Returns:
+            bool: True if the token is NOT a URL, False if it matches a URL pattern.
+        """
+        return (re.fullmatch(r'(?:https?://|www\.)[a-zA-Z0-9.\-/_=?%]+', word) is None)
+
+    def _clean_uncs(self, word: str) -> bool:
+        """
+        Reject UNC (\\server\share) paths.
+
+        Args:
+            word (str): Token to check.
+
+        Returns:
+            bool: True if not a UNC path.
+        """
+        return not word.startswith("\\\\")
 
     # post-filters
     def _min_frequency(self, index: defaultdict[set], frequency:int) -> defaultdict[set]:
@@ -191,7 +231,7 @@ class Tokenizer:
     """
     Tokenizes text input and indexes words and phrases by page number.
     """
-    WORD_SPECIAL = ['\\', '/', '-', '_', '&', '.'] # special chars that can be part of a word
+    WORD_SPECIAL = ['\\', '/', '-', '_', '&', '.', '@', '%', ':', '?', "="] # special chars that can be part of a word
     PAGE_DIVIDER = '\f' # signifies end of page
     PHRASE_CONNECTORS = ["of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs"] # used to connect words in phrases (not start/end)
     PHRASE_SEPARATORS = [",", ";", ":", "–", "•", ".", "!", "?"] # special chars that end a phrase
@@ -281,7 +321,17 @@ class Tokenizer:
         elif b in self.WORD_SPECIAL and self.word and not self.word_spec:
             self.word_spec += b
             return True
-
+        
+        # special char exception for URLs
+        elif b == "/" and self.word and self.word_spec == ":" or self.word_spec == ":/":
+            self.word_spec += b
+            return True
+        
+        # special char execptions for UNC paths
+        elif b == "\\" and not self.word and (not self.word_spec or self.word_spec == "\\"):
+            self.word_spec += b
+            return True
+        
         return False
 
     def _flush_word(self):
@@ -484,10 +534,14 @@ def main():
     parser.add_argument("output", help="Output TXT file")
     parser.add_argument("-v", "--verbose", action="store_true", help="Print verbose output")
     parser.add_argument("-o", "--offset", type=int, default=0, help="Page number offset (default: 0)")
+    # filters
     parser.add_argument("-f", "--min-frequency", type=int, default=None, help="Skip terms appearing on less than N pages")
     parser.add_argument("-F", "--max-frequency", type=int, default=None, help="Skip terms appearing on more than N pages")
     parser.add_argument("-l", "--min-length", type=int, default=None, help="Skip terms less than N characters")
     parser.add_argument("-L", "--max-length", type=int, default=None, help="Skip terms greater than N characters")
+    parser.add_argument("-u", "--clean-urls", action="store_true", default=False, help="Remove URLs")
+    parser.add_argument("-U", "--clean-uncs", action="store_true", default=False, help="Remove UNCs")
+
     args = parser.parse_args()
 
     input_file = args.input
