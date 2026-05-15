@@ -43,10 +43,12 @@ class WordFilter:
             self.pre_filters.append(("min_length", args.min_length))
         if args.max_length:
             self.pre_filters.append(("max_length", args.max_length))
-        if args.clean_urls:
-            self.pre_filters.append(("clean_urls", None))
-        if args.clean_uncs:
-            self.pre_filters.append(("clean_uncs", None))
+        if args.no_filter_urls:
+            self.pre_filters.append(("filter_URLs", None))
+        if args.no_filter_uncs:
+            self.pre_filters.append(("filter_UNCs", None))
+        if args.no_filter_hex:
+            self.pre_filters.append(("filter_hex", None))
         # post
         if args.min_frequency:
             self.post_filters.append(("min_frequency", args.min_frequency))
@@ -60,12 +62,14 @@ class WordFilter:
         Returns:
             str: Sorted list of filter names and parameters.
         """
-        result = f"{' '*self.indent}Pre-filters:\n"
+        result = f"{' '*self.indent}Pre-filters:\n" if len(self.pre_filters) > 0 else ""
         for filter_name, filter_param in sorted(self.pre_filters):
-            result += f"{' '*self.indent}    {filter_name}: {filter_param}\n"
-        result += f"{' '*self.indent}Post-filters:\n"
+            result += f"{' '*self.indent}    {filter_name}: {filter_param if filter_param is not None else True}\n"
+
+        result += f"{' '*self.indent}Post-filters:\n" if len(self.pre_filters) > 0 else ""
         for filter_name, filter_param in sorted(self.post_filters):
-            result += f"{' '*self.indent}    {filter_name}: {filter_param}\n"
+            result += f"{' '*self.indent}    {filter_name}: {filter_param if filter_param is not None else True}\n"
+
         return result.strip('\n')
 
     def prefilter(self, word: str) -> bool:
@@ -83,7 +87,7 @@ class WordFilter:
                 If a configured filter name does not match any available filter method.
         """
         for filter_name, filter_param in self.pre_filters:
-            func = getattr(self, f"_{filter_name}", None)
+            func = getattr(self, f"_{filter_name.lower()}", None)
 
             if func is None:
                 raise ValueError(f"Unknown filter: {filter_name}")
@@ -117,7 +121,7 @@ class WordFilter:
                 If a configured filter name does not match any available filter method.
         """
         for filter_name, filter_param in self.post_filters:
-            func = getattr(self, f"_{filter_name}", None)
+            func = getattr(self, f"_{filter_name.lower()}", None)
 
             if func is None:
                 raise ValueError(f"Unknown filter: {filter_name}")
@@ -156,7 +160,7 @@ class WordFilter:
         """
         return len(word) <= length
 
-    def _clean_urls(self, word: str) -> bool:
+    def _filter_urls(self, word: str) -> bool:
         """
         Determine whether a token should be rejected as a URL-like string.
 
@@ -171,9 +175,9 @@ class WordFilter:
         """
         return (re.fullmatch(r'(?:https?://|www\.)[a-zA-Z0-9.\-/_=?%]+', word) is None)
 
-    def _clean_uncs(self, word: str) -> bool:
+    def _filter_uncs(self, word: str) -> bool:
         """
-        Reject UNC (\\server\share) paths.
+        Reject UNC paths.
 
         Args:
             word (str): Token to check.
@@ -182,6 +186,22 @@ class WordFilter:
             bool: True if not a UNC path.
         """
         return not word.startswith("\\\\")
+
+    def _filter_hex(self, word: str) -> bool:
+        """
+        Reject hexadecimal-like strings.
+
+        Filters tokens that:
+        - start with '0x' followed by hexadecimal characters
+        - consist primarily of hexadecimal characters and are at least 4 characters long
+
+        Args:
+            word (str): Token to check.
+
+        Returns:
+            bool: True if the token is not hexadecimal-like.
+        """
+        return not (re.match(r'^0x[0-9a-fA-F]+', word) or (re.match(r'^[0-9a-fA-F]{4,}', word) and not word.isalpha()))
 
     # post-filters
     def _min_frequency(self, index: defaultdict[set], frequency:int) -> defaultdict[set]:
@@ -539,8 +559,9 @@ def main():
     parser.add_argument("-F", "--max-frequency", type=int, default=None, help="Skip terms appearing on more than N pages")
     parser.add_argument("-l", "--min-length", type=int, default=None, help="Skip terms less than N characters")
     parser.add_argument("-L", "--max-length", type=int, default=None, help="Skip terms greater than N characters")
-    parser.add_argument("-u", "--clean-urls", action="store_true", default=False, help="Remove URLs")
-    parser.add_argument("-U", "--clean-uncs", action="store_true", default=False, help="Remove UNCs")
+    parser.add_argument("-u", "--no-filter-urls", action="store_false", help="Don't remove URLs")
+    parser.add_argument("-U", "--no-filter-uncs", action="store_false", help="Don't remove UNCs")
+    parser.add_argument("-H", "--no-filter-hex", action="store_false", help="Don't remove hexidecimal strings")
 
     args = parser.parse_args()
 
