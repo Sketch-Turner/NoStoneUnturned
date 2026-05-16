@@ -1,10 +1,6 @@
 from collections import defaultdict
 import argparse
 import re
-import nltk
-nltk.download('averaged_perceptron_tagger_eng', quiet=True)
-nltk.download('wordnet', quiet=True)
-from nltk.corpus import wordnet
 
 class WordFilter:
     """
@@ -13,6 +9,19 @@ class WordFilter:
     Words are validated against a sequence of filter rules.
     Each rule maps to a corresponding internal filter method.
     """
+    import nltk
+    nltk.download('averaged_perceptron_tagger_eng', quiet=True)
+
+    # load names
+    NAMES = None
+    with open("wordlists/names.txt", "r", encoding="utf-8") as f:
+        NAMES = set(line.strip() for line in f)
+
+    # load words
+    nltk.download('words', quiet=True)
+    from nltk.corpus import words
+    WORDS = set(word for word in words.words() if word.islower())
+
     def __init__(self, pre_filters=[], post_filters=[], indent=8):
         """
         Initialize filter configuration.
@@ -32,6 +41,7 @@ class WordFilter:
         self.pre_filters = pre_filters
         self.post_filters = post_filters
         self.indent = indent
+        self.stats = defaultdict(int)
 
     def build_from_argparse_args(self, args):
         """
@@ -48,30 +58,32 @@ class WordFilter:
             self.pre_filters.append(("min_length", args.min_length))
         if args.max_length:
             self.pre_filters.append(("max_length", args.max_length))
-        if args.no_filter_urls:
-            self.pre_filters.append(("filter_URLs", None))
-        if args.no_filter_uncs:
-            self.pre_filters.append(("filter_UNCs", None))
+        if args.no_filter_nonalpha:
+            self.pre_filters.append(("filter_nonalpha", None))
+        if args.no_filter_names:
+            self.pre_filters.append(("filter_names", None))
         if args.no_filter_hex:
             self.pre_filters.append(("filter_hex", None))
-        if args.no_filter_mitre:
-            self.pre_filters.append(("filter_mitre", None))
         if args.no_filter_handles:
             self.pre_filters.append(("filter_handles", None))
         if args.no_filter_emails:
             self.pre_filters.append(("filter_emails", None))
-        if args.no_filter_nonalpha:
-            self.pre_filters.append(("filter_nonalpha", None))
+        if args.no_filter_urls:
+            self.pre_filters.append(("filter_URLs", None))
+        if args.no_filter_uncs:
+            self.pre_filters.append(("filter_UNCs", None))
+        if args.no_filter_mitre:
+            self.pre_filters.append(("filter_mitre", None))
 
         # post
         if args.min_frequency:
             self.post_filters.append(("min_frequency", args.min_frequency))
         if args.max_frequency:
             self.post_filters.append(("max_frequency", args.max_frequency))
-        if args.no_filter_modifiers:
-            self.post_filters.append(("filter_modifiers", None))
         if args.no_filter_dictionary:
             self.post_filters.append(("filter_dictionary", None))
+        if args.no_filter_modifiers:
+            self.post_filters.append(("filter_modifiers", None))
 
     def __str__(self):
         """
@@ -112,9 +124,11 @@ class WordFilter:
 
             if filter_param is None:
                 if not func(word):
+                    self.stats[filter_name] += 1
                     return False
             else:
                 if not func(word, filter_param):
+                    self.stats[filter_name] += 1
                     return False
 
         return True
@@ -148,10 +162,12 @@ class WordFilter:
 
                 if filter_param is None:
                     if not func((word, pages)):
+                        self.stats[filter_name] += 1
                         valid = False
                         break
                 else:
                     if not func((word, pages), filter_param):
+                        self.stats[filter_name] += 1
                         valid = False
                         break
             if valid:
@@ -313,6 +329,20 @@ class WordFilter:
         """
         return re.search(r'[a-zA-Z]', word)
 
+    def _filter_names(self, word: str) -> bool:
+        """
+        Reject title-cased words that match known first or last names.
+
+        Args:
+            word (str): Token to evaluate.
+
+        Returns:
+            bool: True if the token is not a detected name.
+        """
+        return not word in self.NAMES
+
+
+
     # post-filters
     def _min_frequency(self, item:tuple[str, set], frequency:int) -> bool:
         """
@@ -358,16 +388,13 @@ class WordFilter:
         if " " in word:
             return True
 
-        pos = nltk.pos_tag([word])[0][1]
+        pos = self.nltk.pos_tag([word])[0][1]
 
         return pos.startswith("NN") or pos.startswith("VB")
 
     def _filter_dictionary(self, item: tuple[str, set]) -> bool:
         """
-        Filter out valid dictionary words using WordNet.
-
-        Words are kept only if they are lowercase alphabetic strings
-        and appear in WordNet (i.e., have at least one synset).
+        Filter out valid dictionary words.
 
         Args:
             item (tuple[str, set]): (word, pages)
@@ -377,12 +404,7 @@ class WordFilter:
             dictionary word and should be filtered out.
         """
         word = item[0]
-
-        # skip invalid words
-        if not re.fullmatch(r"[a-z]+", word):
-            return True
-        
-        return len(wordnet.synsets(word)) == 0
+        return not word in self.WORDS
 
 class Tokenizer:
     """
@@ -706,6 +728,7 @@ def main():
     parser.add_argument("-m", "--no-filter-mitre", action="store_false", help="Don't remove MITRE ATT&CK codes")
     parser.add_argument("-M", "--no-filter-modifiers", action="store_false", help="Don't remove non-noun/verb single word tokens")
     parser.add_argument("-n", "--no-filter-nonalpha", action="store_false", help="Don't remove words with no letters")
+    parser.add_argument("-N", "--no-filter-names", action="store_false", help="Don't remove single word title case tokens matching a name")
     parser.add_argument("-d", "--no-filter-dictionary", action="store_false", help="Don't remove uncapitalized single word tokens found in the english dictionary")
 
     args = parser.parse_args()
@@ -735,13 +758,25 @@ def main():
     print(f"        Words      : {len(tokenizer.words)}")
     print(f"        Phrases    : {len(tokenizer.phrases)}\n")
 
+    print(f"        Pre-filter Hits:")
+    for f, _ in tokenizer.filter.pre_filters:
+        print(f"            {f}: {tokenizer.filter.stats[f]}")
+    print()
+
     # post-filter
     print(f"    [+] Cleaning")
     tokenizer.words = word_filter.postfilter(tokenizer.words)
     tokenizer.filter.remove("filter_dictionary")
+    tokenizer.filter.remove("filter_names")
     tokenizer.phrases = word_filter.postfilter(tokenizer.phrases)
     print(f"        Words      : {len(tokenizer.words)}")
     print(f"        Phrases    : {len(tokenizer.phrases)}\n")
+
+    print(f"        Post-filter Hits:")
+    for f, _ in tokenizer.filter.post_filters + [("filter_dictionary", None)]:
+        print(f"            {f}: {tokenizer.filter.stats[f]}")
+    print()
+
 
 
     # TESTING
