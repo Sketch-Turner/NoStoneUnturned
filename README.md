@@ -42,19 +42,14 @@ build_index.py -v -o 2 -l 2 -L 50 -F 10 -r '[a-zA-Z0-9 .&_-]+' raw.txt index.txt
 ### Parameters
 - `-v`  
   Verbose output (does not affect index)
-
 - `-o 2`  
   PDF page numbering starts on the second page
-
 - `-l 2`  
   Minimum token length for items added to the index
-
 - `-L 50`  
   Maximum token length for items added to the index
-
 - `-F 10`  
   Exclude words appearing on more than 10 pages
-
 - `-r`  
   Regex filter for accepted tokens
 
