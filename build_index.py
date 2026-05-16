@@ -1,6 +1,14 @@
 from collections import defaultdict
 import argparse
 import re
+from io import BytesIO
+
+from pdfminer.high_level import extract_text as pdfminer_extract_text
+
+import nltk
+nltk.download('averaged_perceptron_tagger_eng', quiet=True)
+nltk.download('words', quiet=True)
+from nltk.corpus import words as nltk_words
 
 class WordFilter:
     """
@@ -9,18 +17,13 @@ class WordFilter:
     Words are validated against a sequence of filter rules.
     Each rule maps to a corresponding internal filter method.
     """
-    import nltk
-    nltk.download('averaged_perceptron_tagger_eng', quiet=True)
-
     # load names
-    NAMES = None
+    NAMES = set()
     with open("wordlists/names.txt", "r", encoding="utf-8") as f:
         NAMES = set(line.strip() for line in f)
 
     # load words
-    nltk.download('words', quiet=True)
-    from nltk.corpus import words
-    WORDS = set(word for word in words.words() if word.islower())
+    WORDS = set(word for word in nltk_words.words() if word.islower())
 
     # filter sets
     CONTRACTION_SUFFIXES = ("'re", "'ve", "'ll", "'d", "n't", "'m")
@@ -497,7 +500,7 @@ class WordFilter:
         if " " in word:
             return True
 
-        pos = self.nltk.pos_tag([word])[0][1]
+        pos = nltk.pos_tag([word])[0][1]
 
         return pos.startswith("NN") or pos.startswith("VB")
 
@@ -800,12 +803,14 @@ class Tokenizer:
         if self.mode == 0: 
             for b in data:
                 self._process_byte(b)
-            self._process_byte(0x00) # flush buffer
 
         # PDF
         elif self.mode == 1:
-            #TODO
-            pass
+            for b in pdfminer_extract_text(BytesIO(data)).encode():
+                self._process_byte(b)
+
+        self._process_byte(0x00) # flush buffer
+
 
 
 def read_file(filename)->bytes:
