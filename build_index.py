@@ -27,6 +27,33 @@ class WordFilter:
     PRONOUNS = {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us", "them", "my", "your", "his", "its", "our", "their", "mine", "yours", "hers", "ours", "theirs"}
     CALENDAR = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"}
 
+    # filter mapping
+    PREFILTER_SWITCH = 0
+    POSTFILTER_SWITCH = 1
+    PREFILTER_ARG = 2
+    POSTFILTER_ARG = 3
+    FILTERS = {
+        "c": {"name": "filter_contractions", "type": PREFILTER_SWITCH, "priority": 9},
+        "C": {"name": "filter_calendar", "type": PREFILTER_SWITCH, "priority": 3},
+        "E": {"name": "filter_emails", "type": PREFILTER_SWITCH, "priority": 10},
+        "H": {"name": "filter_hex", "type": PREFILTER_SWITCH, "priority": 6},
+        "l": {"name": "min_length", "type": PREFILTER_ARG, "priority": 0},
+        "l": {"name": "max_length", "type": PREFILTER_ARG, "priority": 0},
+        "m": {"name": "filter_mitre", "type": PREFILTER_SWITCH, "priority": 11},
+        "n": {"name": "filter_nonalpha", "type": PREFILTER_SWITCH, "priority": 1},
+        "N": {"name": "filter_names", "type": PREFILTER_SWITCH, "priority": 4},
+        "p": {"name": "filter_possessives", "type": PREFILTER_SWITCH, "priority": 8},
+        "P": {"name": "filter_pronouns", "type": PREFILTER_SWITCH, "priority": 2},
+        "t": {"name": "filter_handles", "type": PREFILTER_SWITCH, "priority": 5},
+        "u": {"name": "filter_urls", "type": PREFILTER_SWITCH, "priority": 7},
+        "U": {"name": "filter_uncs", "type": PREFILTER_SWITCH, "priority": 12},
+        "f": {"name": "min_frequency", "type": POSTFILTER_ARG, "priority": 0},
+        "F": {"name": "max_frequency", "type": POSTFILTER_ARG, "priority": 0},
+        "r": {"name": "regex", "type": POSTFILTER_ARG, "priority": 0},
+        "D": {"name": "filter_dictionary", "type": POSTFILTER_SWITCH, "priority": 1},
+        "M": {"name": "filter_modifiers", "type": POSTFILTER_SWITCH, "priority": 2}
+    }
+
     def __init__(self, pre_filters=[], post_filters=[], indent=8):
         """
         Initialize filter configuration.
@@ -48,6 +75,36 @@ class WordFilter:
         self.indent = indent
         self.stats = defaultdict(int)
 
+    def __str__(self):
+        """
+        Return a formatted string representation of configured filters.
+
+        Returns:
+            str: Sorted list of filter names and parameters.
+        """
+        result = f"{' '*self.indent}Pre-filters:\n" if len(self.pre_filters) > 0 else ""
+        for filter_name, filter_param in sorted(self.pre_filters):
+            result += f"{' '*self.indent}    {filter_name[7:] if filter_name.startswith("filter_") else filter_name}: {filter_param if filter_param is not None else True}\n"
+
+        result += f"{' '*self.indent}Post-filters:\n" if len(self.pre_filters) > 0 else ""
+        for filter_name, filter_param in sorted(self.post_filters):
+            result += f"{' '*self.indent}    {filter_name[7:] if filter_name.startswith("filter_") else filter_name}: {filter_param if filter_param is not None else True}\n"
+
+        return result.strip('\n')
+
+    @classmethod
+    def get_keys(cls, type:int) -> list:
+        """
+        Return filter keys matching the given filter type.
+
+        Args:
+            type (int): Filter type identifier.
+
+        Returns:
+            list: Matching filter keys.
+        """
+        return [k for k, v in cls.FILTERS.items() if v["type"] == type]
+
     def build_from_argparse_args(self, args):
         """
         Build filter configuration from parsed argparse arguments.
@@ -58,66 +115,48 @@ class WordFilter:
         self.pre_filters = []
         self.post_filters = []
 
-        # pre
+        # get enabled switch filters
+        filters = set(k for k, v in self.FILTERS.items() if v["type"] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH])
+        if args.disable:
+            for f in args.disable:
+                if f == "*":
+                    filters = set()
+                    break
+                elif f in self.FILTERS and self.FILTERS[f]["type"] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH]:
+                    filters.remove(f)
+                else:
+                    raise ValueError(f"Unknown filter: {f}")
+        if args.enable:
+            for f in args.enable:
+                if f == "*":
+                    filters = set(k for k, v in self.FILTERS.items() if v["type"] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH])
+                    break
+                elif f in self.FILTERS and self.FILTERS[f]["type"] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH]:
+                    filters.add(f)
+                else:
+                    raise ValueError(f"Unknown filter: {f}")
+
+        # pre args
         if args.min_length:
             self.pre_filters.append(("min_length", args.min_length))
         if args.max_length:
             self.pre_filters.append(("max_length", args.max_length))
-        if not args.disable_default:
-            if args.no_filter_nonalpha:
-                self.pre_filters.append(("filter_nonalpha", None))
-            if args.no_filter_names:
-                self.pre_filters.append(("filter_names", None))
-            if args.no_filter_possessives:
-                self.pre_filters.append(("filter_possessives", None))
-            if args.no_filter_contractions:
-                self.pre_filters.append(("filter_contractions", None))
-            if args.no_filter_pronouns:
-                self.pre_filters.append(("filter_pronouns", None))
-            if args.no_filter_calendar:
-                self.pre_filters.append(("filter_calendar", None))
-            if args.no_filter_hex:
-                self.pre_filters.append(("filter_hex", None))
-            if args.no_filter_handles:
-                self.pre_filters.append(("filter_handles", None))
-            if args.no_filter_emails:
-                self.pre_filters.append(("filter_emails", None))
-            if args.no_filter_urls:
-                self.pre_filters.append(("filter_URLs", None))
-            if args.no_filter_uncs:
-                self.pre_filters.append(("filter_UNCs", None))
-            if args.no_filter_mitre:
-                self.pre_filters.append(("filter_mitre", None))
 
-        # post
+        # post args
         if args.regex:
             self.post_filters.append(("regex", args.regex))
         if args.min_frequency:
             self.post_filters.append(("min_frequency", args.min_frequency))
         if args.max_frequency:
             self.post_filters.append(("max_frequency", args.max_frequency))
-        if not args.disable_default:
-            if args.no_filter_dictionary:
-                self.post_filters.append(("filter_dictionary", None))
-            if args.no_filter_modifiers:
-                self.post_filters.append(("filter_modifiers", None))
 
-    def __str__(self):
-        """
-        Return a formatted string representation of configured filters.
-
-        Returns:
-            str: Sorted list of filter names and parameters.
-        """
-        result = f"{' '*self.indent}Pre-filters:\n" if len(self.pre_filters) > 0 else ""
-        for filter_name, filter_param in sorted(self.pre_filters):
-            result += f"{' '*self.indent}    {filter_name}: {filter_param if filter_param is not None else True}\n"
-
-        result += f"{' '*self.indent}Post-filters:\n" if len(self.pre_filters) > 0 else ""
-        for filter_name, filter_param in sorted(self.post_filters):
-            result += f"{' '*self.indent}    {filter_name}: {filter_param if filter_param is not None else True}\n"
-
-        return result.strip('\n')
+        # switches
+        for k in filters:
+            f = self.FILTERS[k]
+            if f["type"] == self.PREFILTER_SWITCH:
+                self.pre_filters.insert(f["priority"], (f["name"], None))
+            else:
+                self.post_filters.insert(f["priority"], (f["name"], None))
 
     def prefilter(self, word: str) -> bool:
         """
@@ -137,7 +176,7 @@ class WordFilter:
             func = getattr(self, f"_{filter_name.lower()}", None)
 
             if func is None:
-                raise ValueError(f"Unknown filter: {filter_name}")
+                raise ValueError(f"Unknown filter: <{filter_name}>")
 
             if filter_param is None:
                 if not func(word):
@@ -879,33 +918,67 @@ def print_status(verbose:bool, *args, **kwargs):
 ########################
 def main():
     # parse args
-    parser = argparse.ArgumentParser(description="Build index from TXT file.")
-    parser.add_argument("input", help="Input TXT file")
-    parser.add_argument("output", help="Output TXT file")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Print verbose output")
-    parser.add_argument("-o", "--offset", type=int, default=0, help="Page number offset (default: 0)")
-    # filters
-    parser.add_argument("-f", "--min-frequency", type=int, default=None, help="Skip terms appearing on less than N pages")
-    parser.add_argument("-F", "--max-frequency", type=int, default=None, help="Skip terms appearing on more than N pages")
-    parser.add_argument("-l", "--min-length", type=int, default=None, help="Skip terms less than N characters")
-    parser.add_argument("-L", "--max-length", type=int, default=None, help="Skip terms greater than N characters")
-    parser.add_argument("-r", "--regex", type=str, default=None, help="Tokens must match regex")
-    parser.add_argument("-D", "--disable-default", action="store_true", help="Disable all default filters")
-    parser.add_argument("-u", "--no-filter-urls", action="store_false", help="Don't remove URLs")
-    parser.add_argument("-U", "--no-filter-uncs", action="store_false", help="Don't remove UNCs")
-    parser.add_argument("-H", "--no-filter-hex", action="store_false", help="Don't remove hexidecimal strings")
-    parser.add_argument("-t", "--no-filter-handles", action="store_false", help="Don't remove Twitter/X style handles")
-    parser.add_argument("-e", "--no-filter-emails", action="store_false", help="Don't remove email addresses")
-    parser.add_argument("-m", "--no-filter-mitre", action="store_false", help="Don't remove MITRE ATT&CK codes")
-    parser.add_argument("-M", "--no-filter-modifiers", action="store_false", help="Don't remove non-noun/verb single word tokens")
-    parser.add_argument("-n", "--no-filter-nonalpha", action="store_false", help="Don't remove words with no letters")
-    parser.add_argument("-N", "--no-filter-names", action="store_false", help="Don't remove single word title case tokens matching a name")
-    parser.add_argument("-d", "--no-filter-dictionary", action="store_false", help="Don't remove uncapitalized single word tokens found in the english dictionary")
-    parser.add_argument("-p", "--no-filter-possessives", action="store_false", help="Don't remove possessives")
-    parser.add_argument("-P", "--no-filter-pronouns", action="store_false", help="Don't remove pronouns")
-    parser.add_argument("-c", "--no-filter-contractions", action="store_false", help="Don't remove contractions")
-    parser.add_argument("-C", "--no-filter-calendar", action="store_false", help="Don't remove day or month names")
+    epilog = """
+Tokenization:
+    TXT files are split into pages using the form feed character (0x0C).
+    Text is tokenized into WORD and PHRASE tokens.
+    WORD tokens do not include spaces.
+    PHRASE tokens are built if one or more consecutive WORD tokens meets any of the following criteria:
+        1. Contains a capital letter
+        2. Inside double quotes
+        3. Inside parentheses
 
+Filtering:
+    Pre-filters are applied to tokens as the index is built. 
+    Pre-filters that require args are applied first. They are disabled by default unless an arg is provided.
+        max_length: Filter out ALL tokens longer than N characters
+        min_length: Filter out ALL tokens shorter than N characters
+
+    Switch pre-filters can be managed with -d and -e. They are enabled by default.
+        c - Contractions  Filter out WORD tokens ending in a common contraction suffix
+        C - Calendar      Filter out WORD tokens that match a day or month name
+        E - Email         Filter out WORD tokens that match email address format
+        H - Hex           Filter out WORD tokens that match hex number format
+        m - MITRE         Filter out WORD tokens that match MITRE ATT&CK code format
+        n - Non-alpha     Filter out ALL tokens that have zero alphabet characters
+        N - Names         Filter out WORD tokens matching a name in wordlists/names.txt (titlecase)
+                          Filter out PHRASE tokens that contain two consecutive WORD tokens that match (any case)
+        p - Possessives   Filter out WORD tokens ending in "'s" or "s'"
+        P - Pronouns      Filter out WORD tokens that match a pronoun
+        t - Twitter/X     Filter out WORD tokens that match a Twitter/X handle format
+        u - URLs          Filter out WORD tokens that match URL format
+        U - UNCs          Filter out WORD tokens that match UNC format
+
+    Post-filters are applied to tokens after the index is built. 
+    Post-filters that require args are applied first. They are disabled by default unless an arg is provided.
+        max_frequency: Filter out ALL tokens appearing on more than N pages
+        min_frequency: Filter out ALL tokens appearing on less than N pages
+        regex: Filter out ALL tokens that fail to match the specified regex
+
+    Switch Post-filters can be managed with -d and -e. They are enabled by default.
+        D - Dictionary    Filter out lowercase WORD tokens that match a dictionary word
+        M - Modifiers     Filter out WORD tokens that are not a noun or verb
+"""
+    parser = argparse.ArgumentParser(description="Build index from TXT or PDF file.", epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("input", help="Input TXT/PDF file")
+    parser.add_argument("output", help="Output TXT/PDF file")
+
+    available_filters = "".join(sorted(WordFilter.get_keys(WordFilter.PREFILTER_SWITCH) + WordFilter.get_keys(WordFilter.POSTFILTER_SWITCH)))
+    parser.add_argument("-v", "--verbose", action="store_true", help="Print verbose output")
+    parser.add_argument("-o", "--offset", type=int, default=0, help="Page number offset. Pages before offset are skipped (default: 0)")
+    parser.add_argument("-d", "--disable", metavar=available_filters, type=str, default=None, help="Disable specific filters")
+    parser.add_argument("-e", "--enable", metavar=available_filters, type=str, default=None, help="Enable specific filters (Overrides -d)")
+
+    # prefilters
+    pre = parser.add_argument_group("pre-filter options")
+    pre.add_argument("-l", "--min-length", type=int, default=None, help="Skip ALL tokens less than N characters")
+    pre.add_argument("-L", "--max-length", type=int, default=None, help="Skip ALL tokens greater than N characters")
+
+    # postfilters
+    post = parser.add_argument_group("post-filter options")
+    post.add_argument("-f", "--min-frequency", type=int, default=None, help="Filter out ALL tokens appearing on less than N pages")
+    post.add_argument("-F", "--max-frequency", type=int, default=None, help="Filter out ALL tokens appearing on more than N pages")
+    post.add_argument("-r", "--regex", type=str, default=None, help="Filter out ALL tokens that do not match regex")
 
     args = parser.parse_args()
 
@@ -939,7 +1012,7 @@ def main():
     print_status(verbose, f"        Pre-filter Hits:")
     for f, _ in tokenizer.filter.pre_filters:
         if tokenizer.filter.stats[f] > 0:
-            print_status(verbose, f"            {f}: {tokenizer.filter.stats[f]}")
+            print_status(verbose, f"            {f[7:] if f.startswith("filter_") else f}: {tokenizer.filter.stats[f]}")
     print_status(verbose, "")
 
     # post-filter
@@ -953,7 +1026,7 @@ def main():
     print_status(verbose, f"        Post-filter Hits:")
     for f, _ in tokenizer.filter.post_filters + [("filter_dictionary", None)]:
         if tokenizer.filter.stats[f] > 0:
-            print_status(verbose, f"            {f}: {tokenizer.filter.stats[f]}")
+            print_status(verbose, f"            {f[7:] if f.startswith("filter_") else f}: {tokenizer.filter.stats[f]}")
     print_status(verbose, "")
 
     # write output
@@ -969,3 +1042,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
