@@ -38,8 +38,7 @@ However, PDF layout is lost during conversion to text and multi-column elements 
 ```bash
 build_index.py -v -o 2 -l 2 -L 50 -F 10 -r '[a-zA-Z0-9 .&_-]+' raw.txt index.txt
 ```
-
-### Parameters
+Recommended Settings:
 - `-v`  
   Verbose output (does not affect index)
 - `-o 2`  
