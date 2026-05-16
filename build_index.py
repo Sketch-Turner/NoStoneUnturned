@@ -22,6 +22,11 @@ class WordFilter:
     from nltk.corpus import words
     WORDS = set(word for word in words.words() if word.islower())
 
+    # filter sets
+    CONTRACTION_SUFFIXES = ("'re", "'ve", "'ll", "'d", "n't", "'m")
+    PRONOUNS = {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us", "them", "my", "your", "his", "its", "our", "their", "mine", "yours", "hers", "ours", "theirs"}
+    CALENDAR = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"}
+
     def __init__(self, pre_filters=[], post_filters=[], indent=8):
         """
         Initialize filter configuration.
@@ -58,32 +63,44 @@ class WordFilter:
             self.pre_filters.append(("min_length", args.min_length))
         if args.max_length:
             self.pre_filters.append(("max_length", args.max_length))
-        if args.no_filter_nonalpha:
-            self.pre_filters.append(("filter_nonalpha", None))
-        if args.no_filter_names:
-            self.pre_filters.append(("filter_names", None))
-        if args.no_filter_hex:
-            self.pre_filters.append(("filter_hex", None))
-        if args.no_filter_handles:
-            self.pre_filters.append(("filter_handles", None))
-        if args.no_filter_emails:
-            self.pre_filters.append(("filter_emails", None))
-        if args.no_filter_urls:
-            self.pre_filters.append(("filter_URLs", None))
-        if args.no_filter_uncs:
-            self.pre_filters.append(("filter_UNCs", None))
-        if args.no_filter_mitre:
-            self.pre_filters.append(("filter_mitre", None))
+        if not args.disable_default:
+            if args.no_filter_nonalpha:
+                self.pre_filters.append(("filter_nonalpha", None))
+            if args.no_filter_names:
+                self.pre_filters.append(("filter_names", None))
+            if args.no_filter_possessives:
+                self.pre_filters.append(("filter_possessives", None))
+            if args.no_filter_contractions:
+                self.pre_filters.append(("filter_contractions", None))
+            if args.no_filter_pronouns:
+                self.pre_filters.append(("filter_pronouns", None))
+            if args.no_filter_calendar:
+                self.pre_filters.append(("filter_calendar", None))
+            if args.no_filter_hex:
+                self.pre_filters.append(("filter_hex", None))
+            if args.no_filter_handles:
+                self.pre_filters.append(("filter_handles", None))
+            if args.no_filter_emails:
+                self.pre_filters.append(("filter_emails", None))
+            if args.no_filter_urls:
+                self.pre_filters.append(("filter_URLs", None))
+            if args.no_filter_uncs:
+                self.pre_filters.append(("filter_UNCs", None))
+            if args.no_filter_mitre:
+                self.pre_filters.append(("filter_mitre", None))
 
         # post
+        if args.regex:
+            self.post_filters.append(("regex", args.regex))
         if args.min_frequency:
             self.post_filters.append(("min_frequency", args.min_frequency))
         if args.max_frequency:
             self.post_filters.append(("max_frequency", args.max_frequency))
-        if args.no_filter_dictionary:
-            self.post_filters.append(("filter_dictionary", None))
-        if args.no_filter_modifiers:
-            self.post_filters.append(("filter_modifiers", None))
+        if not args.disable_default:
+            if args.no_filter_dictionary:
+                self.post_filters.append(("filter_dictionary", None))
+            if args.no_filter_modifiers:
+                self.post_filters.append(("filter_modifiers", None))
 
     def __str__(self):
         """
@@ -288,7 +305,7 @@ class WordFilter:
         Returns:
             bool: True if the token is not a MITRE identifier.
         """
-        return not re.fullmatch(r'^(t|ta|T|TA)[0-9]{4}', word)
+        return not re.match(r'^(t|ta|T|TA)[0-9]{4}', word)
 
     def _filter_handles(self, word: str) -> bool:
         """
@@ -339,9 +356,62 @@ class WordFilter:
         Returns:
             bool: True if the token is not a detected name.
         """
-        return not word in self.NAMES
+        words = word.split()
+        if len(words) > 1:
+            pairs = list(zip(words, words[1:]))
+            for first, last in pairs:
+                if first.title() in self.NAMES and last.title() in self.NAMES:
+                    return False
+            return True
+        else:
+            return not (word in self.NAMES and word.lower() not in self.WORDS)
 
+    def _filter_possessives(self, word: str) -> bool:
+        """
+        Filter out possessive forms of words.
 
+        Returns False if the word ends in a possessive marker ('s or s'),
+        otherwise True.
+        """
+        return not re.search(r"(?:'s|s')$", word, re.IGNORECASE)
+    
+    def _filter_contractions(self, word: str) -> bool:
+        """
+        Filter out contraction forms of words.
+
+        Returns False if the word ends with a known contraction suffix, otherwise True.
+
+        Args:
+            word (str): Input token to check.
+
+        Returns:
+            bool: True if word is not a contraction, False otherwise.
+        """
+        return not word.lower().endswith(self.CONTRACTION_SUFFIXES)
+
+    def _filter_pronouns(self, word: str) -> bool:
+        """
+        Filter out pronouns.
+
+        Args:
+            word (str): Input token.
+
+        Returns:
+            bool: True if not a pronoun, False otherwise.
+        """
+        return not word.lower() in self.PRONOUNS
+    
+    def _filter_calendar(self, word: str) -> bool:
+        """
+        Filter out calendar-related terms such as days of the week and months.
+
+        Args:
+            word (str): Input token.
+
+        Returns:
+            bool: True if not a calendar term, False otherwise.
+        """
+        return not word.lower() in self.CALENDAR
 
     # post-filters
     def _min_frequency(self, item:tuple[str, set], frequency:int) -> bool:
@@ -406,13 +476,27 @@ class WordFilter:
         word = item[0]
         return not word in self.WORDS
 
+    def _regex(self, item: tuple[str, set], regex:str) -> bool:
+        """
+        Apply a regex filter to a token.
+
+        Args:
+            item (tuple[str, set]): (word, pages)
+            regex (str): Regular expression used for full-string matching.
+
+        Returns:
+            bool: True if the word does NOT match the regex, False otherwise.
+        """
+        word = item[0]
+        return not re.fullmatch(regex, word) is None
+
 class Tokenizer:
     """
     Tokenizes text input and indexes words and phrases by page number.
     """
     WORD_SPECIAL = ['\\', '/', '-', '_', '&', '.', '@', '%', ':', '?', "=", "\'"] # special chars that can be part of a word
     PAGE_DIVIDER = '\f' # signifies end of page
-    PHRASE_CONNECTORS = ["of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs"] # used to connect words in phrases (not start/end)
+    PHRASE_CONNECTORS = ["of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs","via"] # used to connect words in phrases (not start/end)
     PHRASE_SEPARATORS = [",", ";", ":", "–", "•", ".", "!", "?"] # special chars that end a phrase
 
     def __init__(self, page_offset:int=0, filter:WordFilter=None, mode=0):
@@ -470,11 +554,12 @@ class Tokenizer:
             phrase (str): The phrase to index.
             page (int): The page number where the phrase occurs.
         """
+        p = phrase.lower()
         if self.filter:
             if self.filter.prefilter(phrase):
-                self.phrases[phrase].add(page)
+                self.phrases[p].add(page)
         else:
-            self.phrases[phrase].add(page)
+            self.phrases[p].add(page)
 
     def _process_word_char(self, b: str) -> bool:
         """
@@ -485,7 +570,7 @@ class Tokenizer:
         """
 
         # add to word buffer
-        if b.isalnum():
+        if re.fullmatch(r'[a-z0-9]', b, re.IGNORECASE):
             if self.word_spec:
                 self.word += self.word_spec
                 self.word_spec = ""
@@ -532,9 +617,9 @@ class Tokenizer:
             else:
                 self.words[w].add(self.page)
 
-            self._process_quote_word(w)
-            self._process_paren_word(w)
-            self._process_phrase_word(w)
+            self._process_quote_word(self.word)
+            self._process_paren_word(self.word)
+            self._process_phrase_word(self.word)
 
         self.word = ""
         self.word_spec = ""
@@ -558,7 +643,7 @@ class Tokenizer:
         """
         Process phrase construction logic for a word.
         """
-        if self._has_capital(self.word):
+        if self._has_capital(w):
             if self.phrase and self.phrase_conn:
                 self.phrase += f" {self.phrase_conn}"
                 self.phrase_conn = ""
@@ -700,7 +785,7 @@ def read_file(filename)->bytes:
             data = f.read()
 
     except Exception as e:
-        print(f"    [!] Error reading file.")
+        print(f"    [!] Error reading file: {e}")
     
     return data
 
@@ -777,6 +862,18 @@ def format(*indexes:defaultdict[set]) -> str:
 
     return "\n".join(output)
 
+def print_status(verbose:bool, *args, **kwargs):
+    """
+    Conditional print.
+
+    Args:
+        verbose (bool): True if status should be printed
+        *args: Passed to print()
+        **kwargs: Passed to print()
+    """
+    if verbose:
+        print(*args, **kwargs)
+
 ########################
 # MAIN
 ########################
@@ -792,6 +889,8 @@ def main():
     parser.add_argument("-F", "--max-frequency", type=int, default=None, help="Skip terms appearing on more than N pages")
     parser.add_argument("-l", "--min-length", type=int, default=None, help="Skip terms less than N characters")
     parser.add_argument("-L", "--max-length", type=int, default=None, help="Skip terms greater than N characters")
+    parser.add_argument("-r", "--regex", type=str, default=None, help="Tokens must match regex")
+    parser.add_argument("-D", "--disable-default", action="store_true", help="Disable all default filters")
     parser.add_argument("-u", "--no-filter-urls", action="store_false", help="Don't remove URLs")
     parser.add_argument("-U", "--no-filter-uncs", action="store_false", help="Don't remove UNCs")
     parser.add_argument("-H", "--no-filter-hex", action="store_false", help="Don't remove hexidecimal strings")
@@ -802,72 +901,71 @@ def main():
     parser.add_argument("-n", "--no-filter-nonalpha", action="store_false", help="Don't remove words with no letters")
     parser.add_argument("-N", "--no-filter-names", action="store_false", help="Don't remove single word title case tokens matching a name")
     parser.add_argument("-d", "--no-filter-dictionary", action="store_false", help="Don't remove uncapitalized single word tokens found in the english dictionary")
+    parser.add_argument("-p", "--no-filter-possessives", action="store_false", help="Don't remove possessives")
+    parser.add_argument("-P", "--no-filter-pronouns", action="store_false", help="Don't remove pronouns")
+    parser.add_argument("-c", "--no-filter-contractions", action="store_false", help="Don't remove contractions")
+    parser.add_argument("-C", "--no-filter-calendar", action="store_false", help="Don't remove day or month names")
+
 
     args = parser.parse_args()
 
     input_file = args.input
     output_file = args.output
-    verbose_output = args.verbose
+    verbose = args.verbose
     offset = args.offset
 
     # read file
-    print(f"[+] Reading        : {input_file}")
+    if not verbose:
+        print(f"Indexing: {input_file}")
+    print_status(verbose, f"[+] Reading        : {input_file}")
     filetype = 1 if input_file.upper().endswith("PDF") else 0
     data = read_file(filename=input_file)
-    print(f"    Mode           : {["TXT", "PDF"][filetype]}")
-    print(f"    Size (Bytes)   : {len(data)}\n")
+    print_status(verbose, f"    Mode           : {["TXT", "PDF"][filetype]}")
+    print_status(verbose, f"    Size (Bytes)   : {len(data)}\n")
 
     # prepare filter
-    print(f"    [+] Preparing Filters")
+    print_status(verbose, f"    [+] Preparing Filters")
     word_filter = WordFilter()
     word_filter.build_from_argparse_args(args)
-    print(f"{word_filter}\n")
+    print_status(verbose, f"{word_filter}\n")
 
     # tokenize
-    print(f"    [+] Tokenizing")
+    print_status(verbose, f"    [+] Tokenizing")
     tokenizer = Tokenizer(page_offset=offset, filter=word_filter, mode=filetype)
     tokenizer.tokenize(data)
-    print(f"        Words      : {len(tokenizer.words)}")
-    print(f"        Phrases    : {len(tokenizer.phrases)}\n")
+    print_status(verbose, f"        Words      : {len(tokenizer.words)}")
+    print_status(verbose, f"        Phrases    : {len(tokenizer.phrases)}\n")
 
-    print(f"        Pre-filter Hits:")
+    print_status(verbose, f"        Pre-filter Hits:")
     for f, _ in tokenizer.filter.pre_filters:
-        print(f"            {f}: {tokenizer.filter.stats[f]}")
-    print()
+        if tokenizer.filter.stats[f] > 0:
+            print_status(verbose, f"            {f}: {tokenizer.filter.stats[f]}")
+    print_status(verbose, "")
 
     # post-filter
-    print(f"    [+] Cleaning")
+    print_status(verbose, f"    [+] Cleaning")
     tokenizer.words = word_filter.postfilter(tokenizer.words)
     tokenizer.filter.remove("filter_dictionary")
-    tokenizer.filter.remove("filter_names")
     tokenizer.phrases = word_filter.postfilter(tokenizer.phrases)
-    print(f"        Words      : {len(tokenizer.words)}")
-    print(f"        Phrases    : {len(tokenizer.phrases)}\n")
+    print_status(verbose, f"        Words      : {len(tokenizer.words)}")
+    print_status(verbose, f"        Phrases    : {len(tokenizer.phrases)}\n")
 
-    print(f"        Post-filter Hits:")
+    print_status(verbose, f"        Post-filter Hits:")
     for f, _ in tokenizer.filter.post_filters + [("filter_dictionary", None)]:
-        print(f"            {f}: {tokenizer.filter.stats[f]}")
-    print()
+        if tokenizer.filter.stats[f] > 0:
+            print_status(verbose, f"            {f}: {tokenizer.filter.stats[f]}")
+    print_status(verbose, "")
 
-    print(f"    [+] Writing    : {output_file}")
+    # write output
+    print_status(verbose, f"    [+] Writing    : {output_file}")
     result = format(tokenizer.words, tokenizer.phrases)
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(result)
-    print(f"        Lines      : {result.count("\n") + 1}")
+    print_status(verbose, f"        Lines      : {result.count("\n") + 1}")
+
+    if not verbose:
+        print(f"{result.count("\n") + 1} Lines writen to: {output_file}")
 
 
-    # TESTING
-    # for w in sorted(tokenizer.words.items())[:9]:
-    #     print(w)
-    # print("...")
-    # for w in sorted(tokenizer.words.items())[-10:]:
-    #     print(w)
-    # print()
-    # for p in sorted(tokenizer.phrases.items())[:9]:
-    #     print(p)
-    # print("...")
-    # for p in sorted(tokenizer.phrases.items())[-10:]:
-    #     print(p)
-        
 if __name__ == "__main__":
     main()
