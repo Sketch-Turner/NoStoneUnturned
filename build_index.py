@@ -704,6 +704,78 @@ def read_file(filename)->bytes:
     
     return data
 
+def compress_pages(pages:list) -> str:
+    """
+    Compress page numbers into ranges.
+
+    Args:
+        pages: Iterable of page numbers.
+
+    Returns:
+        Comma-separated string of pages/ranges.
+    """
+    pages = sorted(set(pages))
+    if not pages:
+        return ""
+
+    ranges = []
+    start = prev = pages[0]
+
+    for p in pages[1:]:
+        if p == prev + 1:
+            prev = p
+        else:
+            ranges.append((start, prev))
+            start = prev = p
+
+    ranges.append((start, prev))
+
+    return ", ".join(
+        str(a) if a == b else f"{a}-{b}"
+        for a, b in ranges
+    )
+
+def format(*indexes:defaultdict[set]) -> str:
+    """
+    Format one or more indexes into a grouped alphabetical string.
+
+    Args:
+        *indexes: Dictionaries mapping words/phrases to page-number sets.
+
+    Returns:
+        Formatted index string.
+    """
+    output = []
+    grouped = defaultdict(list)
+
+    for index in indexes:
+        for w, pages in index.items():
+            grouped[w[0].upper()].append((w, pages))
+
+    for letter in sorted(grouped):
+        output.append(f"\n[{letter}]")
+
+        # sort
+        combined = sorted(grouped[letter], key=lambda x: x[0])
+
+        header = combined[0]
+        output.append(f"{header[0]}: {compress_pages(header[1])}")
+        for t in combined[1:]:
+            text = t[0]
+            pages = t[1]
+
+            # check duplicates
+            if text == header[0]:
+                continue
+            
+            # check if text fits header
+            if header[0].split(" ")[0] == text.split(" ")[0]:
+                output.append(f"    {text}: {compress_pages(pages)}")
+            else:
+                header = t
+                output.append(f"{header[0]}: {compress_pages(header[1])}")
+
+    return "\n".join(output)
 
 ########################
 # MAIN
@@ -777,20 +849,25 @@ def main():
         print(f"            {f}: {tokenizer.filter.stats[f]}")
     print()
 
+    print(f"    [+] Writing    : {output_file}")
+    result = format(tokenizer.words, tokenizer.phrases)
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(result)
+    print(f"        Lines      : {result.count("\n") + 1}")
 
 
     # TESTING
-    for w in sorted(tokenizer.words.items())[:9]:
-        print(w)
-    print("...")
-    for w in sorted(tokenizer.words.items())[-10:]:
-        print(w)
-    print()
-    for p in sorted(tokenizer.phrases.items())[:9]:
-        print(p)
-    print("...")
-    for p in sorted(tokenizer.phrases.items())[-10:]:
-        print(p)
+    # for w in sorted(tokenizer.words.items())[:9]:
+    #     print(w)
+    # print("...")
+    # for w in sorted(tokenizer.words.items())[-10:]:
+    #     print(w)
+    # print()
+    # for p in sorted(tokenizer.phrases.items())[:9]:
+    #     print(p)
+    # print("...")
+    # for p in sorted(tokenizer.phrases.items())[-10:]:
+    #     print(p)
         
 if __name__ == "__main__":
     main()
