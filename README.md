@@ -1,2 +1,54 @@
 # NoStoneUnturned
 Automatic Index Builder
+
+## Overview
+
+Build indexes from PDF or TXT files. 
+
+Casts a wide net but it gets everything. Could be a good option for any open-book with index test.
+
+---
+## Dependencies
+
+- nltk
+- pdfminer.six
+- pypdf
+
+Install Python dependencies:
+
+```bash
+pip install nltk pdfminer.six pypdf
+```
+---
+## Workflow
+
+1. Decrypt PDFs (as required)
+```bash
+qpdf --password=<PASSWORD> --decrypt raw.pdf raw_decrypted.pdf
+```
+
+2. Extract text (optional)
+```bash
+pdftotext raw_decrypted.pdf raw.txt
+```
+pdftotext from poppler generally gives better results than extracting from the raw PDF.
+However, PDF layout is lost during conversion to text and multi-column elements may be reordered incorrectly.
+
+3. Build index
+```bash
+build_index.py -v -o 2 -l 2 -L 50 -F 10 -r '[a-zA-Z0-9 .&_-]+' raw.txt index.txt
+```
+Parameters
+-v: Verbose output (doesn't effect index)
+-o 2: PDF page numbering started on the second page
+-l 2: Min length for items added to index
+-L 50: Max length for items added to index
+-F 10: Exclude words found on more than 10 pages
+-r: regex filter
+
+4. Merge indexes
+```bash
+index_merge.py -o merged_index.txt index1.txt index2.txt index3.txt
+```
+
+
