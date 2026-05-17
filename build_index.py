@@ -36,25 +36,25 @@ class WordFilter:
     PREFILTER_ARG = 2
     POSTFILTER_ARG = 3
     FILTERS = {
-        "c": {"name": "filter_contractions", "type": PREFILTER_SWITCH, "priority": 9},
-        "C": {"name": "filter_calendar", "type": PREFILTER_SWITCH, "priority": 3},
-        "E": {"name": "filter_emails", "type": PREFILTER_SWITCH, "priority": 10},
-        "H": {"name": "filter_hex", "type": PREFILTER_SWITCH, "priority": 6},
-        "l": {"name": "min_length", "type": PREFILTER_ARG, "priority": 0},
-        "l": {"name": "max_length", "type": PREFILTER_ARG, "priority": 0},
-        "m": {"name": "filter_mitre", "type": PREFILTER_SWITCH, "priority": 11},
-        "n": {"name": "filter_nonalpha", "type": PREFILTER_SWITCH, "priority": 1},
-        "N": {"name": "filter_names", "type": PREFILTER_SWITCH, "priority": 4},
-        "p": {"name": "filter_possessives", "type": PREFILTER_SWITCH, "priority": 8},
-        "P": {"name": "filter_pronouns", "type": PREFILTER_SWITCH, "priority": 2},
-        "t": {"name": "filter_handles", "type": PREFILTER_SWITCH, "priority": 5},
-        "u": {"name": "filter_urls", "type": PREFILTER_SWITCH, "priority": 7},
-        "U": {"name": "filter_uncs", "type": PREFILTER_SWITCH, "priority": 12},
-        "f": {"name": "min_frequency", "type": POSTFILTER_ARG, "priority": 0},
-        "F": {"name": "max_frequency", "type": POSTFILTER_ARG, "priority": 0},
-        "r": {"name": "regex", "type": POSTFILTER_ARG, "priority": 0},
-        "D": {"name": "filter_dictionary", "type": POSTFILTER_SWITCH, "priority": 1},
-        "M": {"name": "filter_modifiers", "type": POSTFILTER_SWITCH, "priority": 2}
+        "c": {"name": "filter_contractions", "type": PREFILTER_SWITCH, "priority": 9, "info": "        c - Contractions  Filter out WORD tokens ending in a common contraction suffix"},
+        "C": {"name": "filter_calendar", "type": PREFILTER_SWITCH, "priority": 3, "info": "        C - Calendar      Filter out WORD tokens that match a day or month name"},
+        "E": {"name": "filter_emails", "type": PREFILTER_SWITCH, "priority": 10, "info": "        E - Email         Filter out WORD tokens that match email address format"},
+        "H": {"name": "filter_hex", "type": PREFILTER_SWITCH, "priority": 6, "info": "        H - Hex           Filter out WORD tokens that match hex number format"},
+        "l": {"name": "min_length", "type": PREFILTER_ARG, "priority": 0, "info": "        min_length: Filter out ALL tokens shorter than N characters"},
+        "L": {"name": "max_length", "type": PREFILTER_ARG, "priority": 0, "info": "        max_length: Filter out ALL tokens longer than N characters"},
+        "m": {"name": "filter_mitre", "type": PREFILTER_SWITCH, "priority": 11, "info": "        m - MITRE         Filter out WORD tokens that match MITRE ATT&CK code format"},
+        "n": {"name": "filter_nonalpha", "type": PREFILTER_SWITCH, "priority": 1, "info": "        n - Non-alpha     Filter out ALL tokens that have zero alphabet characters"},
+        "N": {"name": "filter_names", "type": PREFILTER_SWITCH, "priority": 4, "info": "        N - Names         Filter out WORD tokens matching a name in wordlists/names.txt (titlecase)\n                          Filter out PHRASE tokens that contain two consecutive WORD tokens that match (any case)"},
+        "p": {"name": "filter_possessives", "type": PREFILTER_SWITCH, "priority": 8, "info": "        p - Possessives   Filter out WORD tokens ending in "'s" or "s'""},
+        "P": {"name": "filter_pronouns", "type": PREFILTER_SWITCH, "priority": 2, "info": "        P - Pronouns      Filter out WORD tokens that match a pronoun"},
+        "t": {"name": "filter_handles", "type": PREFILTER_SWITCH, "priority": 5, "info": "        t - Twitter/X     Filter out WORD tokens that match a Twitter/X handle format"},
+        "u": {"name": "filter_urls", "type": PREFILTER_SWITCH, "priority": 7, "info": "        u - URLs          Filter out WORD tokens that match URL format"},
+        "U": {"name": "filter_uncs", "type": PREFILTER_SWITCH, "priority": 12, "info": "        U - UNCs          Filter out WORD tokens that match UNC format"},
+        "f": {"name": "min_frequency", "type": POSTFILTER_ARG, "priority": 0, "info": "        min_frequency: Filter out ALL tokens appearing on less than N pages"},
+        "F": {"name": "max_frequency", "type": POSTFILTER_ARG, "priority": 0, "info": "        max_frequency: Filter out ALL tokens appearing on more than N pages"},
+        "r": {"name": "regex", "type": POSTFILTER_ARG, "priority": 0, "info": "        regex: Filter out ALL tokens that fail to match the specified regex"},
+        "D": {"name": "filter_dictionary", "type": POSTFILTER_SWITCH, "priority": 1, "info": "        D - Dictionary    Filter out lowercase WORD tokens that match a dictionary word"},
+        "M": {"name": "filter_modifiers", "type": POSTFILTER_SWITCH, "priority": 2, "info": "        M - Modifiers     Filter out WORD tokens that are not a noun or verb"}
     }
 
     def __init__(self, pre_filters=[], post_filters=[], indent=8):
@@ -107,6 +107,31 @@ class WordFilter:
             list: Matching filter keys.
         """
         return [k for k, v in cls.FILTERS.items() if v["type"] == type]
+
+    @classmethod
+    def get_filter_info(cls) -> str:
+        """
+        Build and return formatted help text describing available filters.
+
+        Returns:
+            str: Filter documentation.
+        """
+        return "\n".join([
+            "Filtering:",
+            "    Pre-filters are applied to tokens as the index is built. ",
+            "    Pre-filters that require args are applied first. They are disabled by default unless an arg is provided."
+            ] + [f"{v["info"]}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_ARG] + [
+            "",
+            "    Switch pre-filters can be managed with -d and -e. They are enabled by default."
+            ] + [f"{v["info"]}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_SWITCH] + [
+            f"",
+            f"    Post-filters are applied to tokens after the index is built. ",
+            f"    Post-filters that require args are applied first. They are disabled by default unless an arg is provided."
+            ] + [f"{v["info"]}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_ARG] + [
+            f"",
+            f"    Switch Post-filters can be managed with -d and -e. They are enabled by default."
+            ] + [f"{v["info"]}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_SWITCH]
+        )
 
     def build_from_argparse_args(self, args):
         """
@@ -573,6 +598,26 @@ class Tokenizer:
         self.words = defaultdict(set) # word: pages
         self.phrases = defaultdict(set) # phrase: pages
 
+    @classmethod
+    def get_tokenizer_info(cls) -> str:
+        """
+        Build and return formatted help text describing Tokenizer.
+
+        Returns:
+            str: Tokenizer documentation.
+        """
+        return "\n".join([
+            "Tokenization:",
+            "    TXT files are split into pages using the form feed character (0x0C).",
+            "    Text is tokenized into WORD and PHRASE tokens.",
+            "    WORD tokens do not include spaces.",
+            "    PHRASE tokens are built if one or more consecutive WORD tokens meets any of the following criteria:",
+            "        1. Contains a capital letter",
+            "        2. Inside double quotes",
+            "        3. Inside parentheses",
+            "\n"
+        ])
+
     def _has_capital(self, word:str)->bool:
         """
         Check whether a word contains at least one uppercase letter.
@@ -923,47 +968,7 @@ def print_status(verbose:bool, *args, **kwargs):
 ########################
 def main():
     # parse args
-    epilog = """
-Tokenization:
-    TXT files are split into pages using the form feed character (0x0C).
-    Text is tokenized into WORD and PHRASE tokens.
-    WORD tokens do not include spaces.
-    PHRASE tokens are built if one or more consecutive WORD tokens meets any of the following criteria:
-        1. Contains a capital letter
-        2. Inside double quotes
-        3. Inside parentheses
-
-Filtering:
-    Pre-filters are applied to tokens as the index is built. 
-    Pre-filters that require args are applied first. They are disabled by default unless an arg is provided.
-        max_length: Filter out ALL tokens longer than N characters
-        min_length: Filter out ALL tokens shorter than N characters
-
-    Switch pre-filters can be managed with -d and -e. They are enabled by default.
-        c - Contractions  Filter out WORD tokens ending in a common contraction suffix
-        C - Calendar      Filter out WORD tokens that match a day or month name
-        E - Email         Filter out WORD tokens that match email address format
-        H - Hex           Filter out WORD tokens that match hex number format
-        m - MITRE         Filter out WORD tokens that match MITRE ATT&CK code format
-        n - Non-alpha     Filter out ALL tokens that have zero alphabet characters
-        N - Names         Filter out WORD tokens matching a name in wordlists/names.txt (titlecase)
-                          Filter out PHRASE tokens that contain two consecutive WORD tokens that match (any case)
-        p - Possessives   Filter out WORD tokens ending in "'s" or "s'"
-        P - Pronouns      Filter out WORD tokens that match a pronoun
-        t - Twitter/X     Filter out WORD tokens that match a Twitter/X handle format
-        u - URLs          Filter out WORD tokens that match URL format
-        U - UNCs          Filter out WORD tokens that match UNC format
-
-    Post-filters are applied to tokens after the index is built. 
-    Post-filters that require args are applied first. They are disabled by default unless an arg is provided.
-        max_frequency: Filter out ALL tokens appearing on more than N pages
-        min_frequency: Filter out ALL tokens appearing on less than N pages
-        regex: Filter out ALL tokens that fail to match the specified regex
-
-    Switch Post-filters can be managed with -d and -e. They are enabled by default.
-        D - Dictionary    Filter out lowercase WORD tokens that match a dictionary word
-        M - Modifiers     Filter out WORD tokens that are not a noun or verb
-"""
+    epilog = Tokenizer.get_tokenizer_info() + WordFilter.get_filter_info()
     parser = argparse.ArgumentParser(description="Build index from TXT or PDF file.", epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("input", help="Input TXT/PDF file")
     parser.add_argument("output", help="Output TXT/PDF file")
@@ -1047,9 +1052,3 @@ Filtering:
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
