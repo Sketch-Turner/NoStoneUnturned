@@ -121,22 +121,22 @@ class WordFilter:
         max_pre_switch = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.PREFILTER_SWITCH])
         max_post_arg = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.POSTFILTER_ARG])
         max_post_switch = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.POSTFILTER_SWITCH])
-
+        nli = 15 #newline indent
         return "\n".join([
             "Filtering:",
             "    Pre-filters are applied to tokens as the index is built. ",
             "    Pre-filters that require args are applied first. They are disabled by default unless an arg is provided."
-            ] + [f"        {v["name"] + " "*(max_pre_arg - len(v["name"]))}  {v["info"].replace("\n", "\n"+" "*(14 + max_pre_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_ARG] + [
+            ] + [f"        {v["name"] + " "*(max_pre_arg - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli + max_pre_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_ARG] + [
             "",
             "    Switch pre-filters can be managed with -d and -e. They are enabled by default."
-            ] + [f"        {k} - {v["name"] + " "*(max_pre_switch - len(v["name"]))}  {v["info"].replace("\n", "\n"+" "*(14 + max_pre_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_SWITCH] + [
+            ] + [f"        {k} - {v["name"] + " "*(max_pre_switch - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli + max_pre_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_SWITCH] + [
             f"",
             f"    Post-filters are applied to tokens after the index is built. ",
             f"    Post-filters that require args are applied first. They are disabled by default unless an arg is provided."
-            ] + [f"        {v["name"] + " "*(max_post_arg - len(v["name"]))}  {v["info"].replace("\n", "\n"+" "*(14 + max_post_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_ARG] + [
+            ] + [f"        {v["name"] + " "*(max_post_arg - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli + max_post_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_ARG] + [
             f"",
             f"    Switch Post-filters can be managed with -d and -e. They are enabled by default."
-            ] + [f"        {k} - {v["name"] + " "*(max_post_switch - len(v["name"]))}  {v["info"].replace("\n", "\n"+" "*(14 + max_post_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_SWITCH]
+            ] + [f"        {k} - {v["name"] + " "*(max_post_switch - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli + max_post_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_SWITCH]
         )
 
     def build_from_argparse_args(self, args):
