@@ -13,11 +13,12 @@ Casts a wide net but it gets everything. Could be a good option for any open-boo
 - nltk
 - pdfminer.six
 - pypdf
+- wordfreq
 
 Install Python dependencies:
 
 ```bash
-pip install nltk pdfminer.six pypdf
+pip install nltk pdfminer.six pypdf wordfreq
 ```
 ---
 ## Workflow
@@ -36,7 +37,7 @@ However, PDF layout is lost during conversion to text and multi-column elements 
 
 3. Build index
 ```bash
-build_index.py -v -o 2 -l 2 -L 50 -F 10 -r '[a-zA-Z0-9 .&_-]+' raw.txt index.txt
+build_index.py -v -o 2 -l 2 -L 50 -F 10 -z 4.0 -r '[a-zA-Z0-9 :.&_-]+' raw.txt index.txt
 ```
 Recommended Settings:
 - `-v`  
@@ -49,6 +50,8 @@ Recommended Settings:
   Maximum token length for items added to the index
 - `-F 10`  
   Exclude words appearing on more than 10 pages
+- `-z 4.0`
+  Exclude words with a Zipf score > 4.0
 - `-r`  
   Regex filter for accepted tokens
 

@@ -10,6 +10,8 @@ nltk.download('averaged_perceptron_tagger_eng', quiet=True)
 nltk.download('words', quiet=True)
 from nltk.corpus import words as nltk_words
 
+from wordfreq import zipf_frequency
+
 class WordFilter:
     """
     Configurable word validation system.
@@ -45,7 +47,7 @@ class WordFilter:
         "m": {"name": "MITRE", "func": "filter_mitre", "type": PREFILTER_SWITCH, "priority": 11, "info": "Filter out WORD tokens that match MITRE ATT&CK code format"},
         "n": {"name": "Non-alpha", "func": "filter_nonalpha", "type": PREFILTER_SWITCH, "priority": 1, "info": "Filter out ALL tokens that have zero alphabet characters"},
         "N": {"name": "Names", "func": "filter_names", "type": PREFILTER_SWITCH, "priority": 4, "info": "Filter out WORD tokens matching a name in wordlists/names.txt (titlecase)\nFilter out PHRASE tokens that contain two consecutive WORD tokens that match (any case)"},
-        "p": {"name": "Possessives", "func": "filter_possessives", "type": PREFILTER_SWITCH, "priority": 8, "info": "Filter out WORD tokens ending in "'s" or "s'""},
+        "p": {"name": "Possessives", "func": "filter_possessives", "type": PREFILTER_SWITCH, "priority": 8, "info": "Filter out WORD tokens ending in \'s or s\'"},
         "P": {"name": "Pronouns", "func": "filter_pronouns", "type": PREFILTER_SWITCH, "priority": 2, "info": "Filter out WORD tokens that match a pronoun"},
         "t": {"name": "Twitter/X Handles", "func": "filter_handles", "type": PREFILTER_SWITCH, "priority": 5, "info": "Filter out WORD tokens that match a Twitter/X handle format"},
         "u": {"name": "URLs", "func": "filter_urls", "type": PREFILTER_SWITCH, "priority": 7, "info": "Filter out WORD tokens that match URL format"},
@@ -54,7 +56,8 @@ class WordFilter:
         "F": {"name": "Max Frequency", "func": "max_frequency", "type": POSTFILTER_ARG, "priority": 0, "info": "Filter out ALL tokens appearing on more than N pages"},
         "r": {"name": "Regex", "func": "regex", "type": POSTFILTER_ARG, "priority": 0, "info": "Filter out ALL tokens that fail to match the specified regex"},
         "D": {"name": "Dictionary", "func": "filter_dictionary", "type": POSTFILTER_SWITCH, "priority": 1, "info": "Filter out lowercase WORD tokens that match a dictionary word"},
-        "M": {"name": "Modifiers", "func": "filter_modifiers", "type": POSTFILTER_SWITCH, "priority": 2, "info": "Filter out WORD tokens that are not a noun or verb"}
+        "M": {"name": "Modifiers", "func": "filter_modifiers", "type": POSTFILTER_SWITCH, "priority": 2, "info": "Filter out WORD tokens that are not a noun or verb"},
+        "z": {"name": "Zipf Score", "func": "zipf", "type": POSTFILTER_ARG, "priority": 0, "info": "Filter out ALL tokens with a Zipf Score > N\nZipf Scores are a Log 10 scale:\n1  Very Rare         ~1 in 100,000,000 words\n3  Uncommon          ~1 in 1,000,000 words\n5  Common            ~1 in 10,000 words\n6  Very Common       ~1 in 1,000 words\n7  Extremely Common  ~1 in 100 words"}
     }
 
     def __init__(self, pre_filters=[], post_filters=[], indent=8):
@@ -121,22 +124,23 @@ class WordFilter:
         max_pre_switch = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.PREFILTER_SWITCH])
         max_post_arg = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.POSTFILTER_ARG])
         max_post_switch = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.POSTFILTER_SWITCH])
-        nli = 15 #newline indent
+        nli_s = 15 # switch newline indent
+        nli_a = 11 # arg nl indent
         return "\n".join([
             "Filtering:",
             "    Pre-filters are applied to tokens as the index is built. ",
             "    Pre-filters that require args are applied first. They are disabled by default unless an arg is provided."
-            ] + [f"        {v["name"] + " "*(max_pre_arg - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli + max_pre_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_ARG] + [
+            ] + [f"        {v["name"] + " "*(max_pre_arg - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli_a + max_pre_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_ARG] + [
             "",
             "    Switch pre-filters can be managed with -d and -e. They are enabled by default."
-            ] + [f"        {k} - {v["name"] + " "*(max_pre_switch - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli + max_pre_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_SWITCH] + [
+            ] + [f"        {k} - {v["name"] + " "*(max_pre_switch - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli_s + max_pre_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_SWITCH] + [
             f"",
             f"    Post-filters are applied to tokens after the index is built. ",
             f"    Post-filters that require args are applied first. They are disabled by default unless an arg is provided."
-            ] + [f"        {v["name"] + " "*(max_post_arg - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli + max_post_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_ARG] + [
+            ] + [f"        {v["name"] + " "*(max_post_arg - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli_a + max_post_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_ARG] + [
             f"",
             f"    Switch Post-filters can be managed with -d and -e. They are enabled by default."
-            ] + [f"        {k} - {v["name"] + " "*(max_post_switch - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli + max_post_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_SWITCH]
+            ] + [f"        {k} - {v["name"] + " "*(max_post_switch - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli_s + max_post_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_SWITCH]
         )
 
     def build_from_argparse_args(self, args):
@@ -172,18 +176,16 @@ class WordFilter:
                     raise ValueError(f"Unknown filter: {f}")
 
         # pre args
-        if args.min_length:
-            self.pre_filters.append(("min_length", args.min_length))
-        if args.max_length:
-            self.pre_filters.append(("max_length", args.max_length))
+        for f in [v for v in self.FILTERS.values() if v["type"]  == self.PREFILTER_ARG]:
+            f_ptr = getattr(args, f["func"], None)
+            if f_ptr:
+                self.pre_filters.insert(f["priority"], (f["func"], f_ptr))
 
         # post args
-        if args.regex:
-            self.post_filters.append(("regex", args.regex))
-        if args.min_frequency:
-            self.post_filters.append(("min_frequency", args.min_frequency))
-        if args.max_frequency:
-            self.post_filters.append(("max_frequency", args.max_frequency))
+        for f in [v for v in self.FILTERS.values() if v["type"]  == self.POSTFILTER_ARG]:
+            f_ptr = getattr(args, f["func"], None)
+            if f_ptr:
+                self.post_filters.insert(f["priority"], (f["func"], f_ptr))
 
         # switches
         for k in filters:
@@ -563,6 +565,22 @@ class WordFilter:
         """
         word = item[0]
         return not re.fullmatch(regex, word) is None
+
+    def _zipf(self, item: tuple[str, set], score:float) -> bool:
+        """
+        Filter words using their zipf score.
+
+        Args:
+            item (tuple[str, set]): (word, pages)
+            score (float): Min score
+
+        Returns:
+            bool: True if the word frequency is < score, otherwise False.
+        """
+        word = item[0]
+        if " " in word:
+            return True
+        return zipf_frequency(word, "en") < score
 
 class Tokenizer:
     """
@@ -996,6 +1014,7 @@ def main():
     post.add_argument("-f", "--min-frequency", type=int, default=None, help="Filter out ALL tokens appearing on less than N pages")
     post.add_argument("-F", "--max-frequency", type=int, default=None, help="Filter out ALL tokens appearing on more than N pages")
     post.add_argument("-r", "--regex", type=str, default=None, help="Filter out ALL tokens that do not match regex")
+    post.add_argument("-z", "--zipf", type=float, default=None, help="Filter out ALL tokens with a Zipf Score > N.")
 
     args = parser.parse_args()
 
