@@ -155,6 +155,7 @@ class WordFilter:
                 else:
                     raise ValueError(f"Unknown filter: {f}")
         if args.enable:
+            filters = set()
             for f in args.enable:
                 if f == "*":
                     filters = set(k for k, v in self.FILTERS.items() if v["type"] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH])
@@ -976,8 +977,8 @@ def main():
     available_filters = "".join(sorted(WordFilter.get_keys(WordFilter.PREFILTER_SWITCH) + WordFilter.get_keys(WordFilter.POSTFILTER_SWITCH)))
     parser.add_argument("-v", "--verbose", action="store_true", help="Print verbose output")
     parser.add_argument("-o", "--offset", type=int, default=0, help="Page number offset. Pages before offset are skipped (default: 0)")
-    parser.add_argument("-d", "--disable", metavar=available_filters, type=str, default=None, help="Disable specific filters")
-    parser.add_argument("-e", "--enable", metavar=available_filters, type=str, default=None, help="Enable specific filters (Overrides -d)")
+    parser.add_argument("-d", "--disable", metavar=available_filters, type=str, default=None, help="Disable specified filters")
+    parser.add_argument("-e", "--enable", metavar=available_filters, type=str, default=None, help="Enable only specified filters (Overrides -d)")
 
     # prefilters
     pre = parser.add_argument_group("pre-filter options")
