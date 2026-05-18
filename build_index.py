@@ -36,25 +36,25 @@ class WordFilter:
     PREFILTER_ARG = 2
     POSTFILTER_ARG = 3
     FILTERS = {
-        "c": {"name": "filter_contractions", "type": PREFILTER_SWITCH, "priority": 9, "info": "        c - Contractions  Filter out WORD tokens ending in a common contraction suffix"},
-        "C": {"name": "filter_calendar", "type": PREFILTER_SWITCH, "priority": 3, "info": "        C - Calendar      Filter out WORD tokens that match a day or month name"},
-        "E": {"name": "filter_emails", "type": PREFILTER_SWITCH, "priority": 10, "info": "        E - Email         Filter out WORD tokens that match email address format"},
-        "H": {"name": "filter_hex", "type": PREFILTER_SWITCH, "priority": 6, "info": "        H - Hex           Filter out WORD tokens that match hex number format"},
-        "l": {"name": "min_length", "type": PREFILTER_ARG, "priority": 0, "info": "        min_length: Filter out ALL tokens shorter than N characters"},
-        "L": {"name": "max_length", "type": PREFILTER_ARG, "priority": 0, "info": "        max_length: Filter out ALL tokens longer than N characters"},
-        "m": {"name": "filter_mitre", "type": PREFILTER_SWITCH, "priority": 11, "info": "        m - MITRE         Filter out WORD tokens that match MITRE ATT&CK code format"},
-        "n": {"name": "filter_nonalpha", "type": PREFILTER_SWITCH, "priority": 1, "info": "        n - Non-alpha     Filter out ALL tokens that have zero alphabet characters"},
-        "N": {"name": "filter_names", "type": PREFILTER_SWITCH, "priority": 4, "info": "        N - Names         Filter out WORD tokens matching a name in wordlists/names.txt (titlecase)\n                          Filter out PHRASE tokens that contain two consecutive WORD tokens that match (any case)"},
-        "p": {"name": "filter_possessives", "type": PREFILTER_SWITCH, "priority": 8, "info": "        p - Possessives   Filter out WORD tokens ending in "'s" or "s'""},
-        "P": {"name": "filter_pronouns", "type": PREFILTER_SWITCH, "priority": 2, "info": "        P - Pronouns      Filter out WORD tokens that match a pronoun"},
-        "t": {"name": "filter_handles", "type": PREFILTER_SWITCH, "priority": 5, "info": "        t - Twitter/X     Filter out WORD tokens that match a Twitter/X handle format"},
-        "u": {"name": "filter_urls", "type": PREFILTER_SWITCH, "priority": 7, "info": "        u - URLs          Filter out WORD tokens that match URL format"},
-        "U": {"name": "filter_uncs", "type": PREFILTER_SWITCH, "priority": 12, "info": "        U - UNCs          Filter out WORD tokens that match UNC format"},
-        "f": {"name": "min_frequency", "type": POSTFILTER_ARG, "priority": 0, "info": "        min_frequency: Filter out ALL tokens appearing on less than N pages"},
-        "F": {"name": "max_frequency", "type": POSTFILTER_ARG, "priority": 0, "info": "        max_frequency: Filter out ALL tokens appearing on more than N pages"},
-        "r": {"name": "regex", "type": POSTFILTER_ARG, "priority": 0, "info": "        regex: Filter out ALL tokens that fail to match the specified regex"},
-        "D": {"name": "filter_dictionary", "type": POSTFILTER_SWITCH, "priority": 1, "info": "        D - Dictionary    Filter out lowercase WORD tokens that match a dictionary word"},
-        "M": {"name": "filter_modifiers", "type": POSTFILTER_SWITCH, "priority": 2, "info": "        M - Modifiers     Filter out WORD tokens that are not a noun or verb"}
+        "c": {"name": "Contractions", "func": "filter_contractions", "type": PREFILTER_SWITCH, "priority": 9, "info": "Filter out WORD tokens ending in a common contraction suffix"},
+        "C": {"name": "Calendar", "func": "filter_calendar", "type": PREFILTER_SWITCH, "priority": 3, "info": "Filter out WORD tokens that match a day or month name"},
+        "E": {"name": "Email", "func": "filter_emails", "type": PREFILTER_SWITCH, "priority": 10, "info": "Filter out WORD tokens that match email address format"},
+        "H": {"name": "Hex", "func": "filter_hex", "type": PREFILTER_SWITCH, "priority": 6, "info": "Filter out WORD tokens that match hex number format"},
+        "l": {"name": "Min Length", "func": "min_length", "type": PREFILTER_ARG, "priority": 0, "info": "Filter out ALL tokens shorter than N characters"},
+        "L": {"name": "Max Length", "func": "max_length", "type": PREFILTER_ARG, "priority": 0, "info": "Filter out ALL tokens longer than N characters"},
+        "m": {"name": "MITRE", "func": "filter_mitre", "type": PREFILTER_SWITCH, "priority": 11, "info": "Filter out WORD tokens that match MITRE ATT&CK code format"},
+        "n": {"name": "Non-alpha", "func": "filter_nonalpha", "type": PREFILTER_SWITCH, "priority": 1, "info": "Filter out ALL tokens that have zero alphabet characters"},
+        "N": {"name": "Names", "func": "filter_names", "type": PREFILTER_SWITCH, "priority": 4, "info": "Filter out WORD tokens matching a name in wordlists/names.txt (titlecase)\nFilter out PHRASE tokens that contain two consecutive WORD tokens that match (any case)"},
+        "p": {"name": "Possessives", "func": "filter_possessives", "type": PREFILTER_SWITCH, "priority": 8, "info": "Filter out WORD tokens ending in "'s" or "s'""},
+        "P": {"name": "Pronouns", "func": "filter_pronouns", "type": PREFILTER_SWITCH, "priority": 2, "info": "Filter out WORD tokens that match a pronoun"},
+        "t": {"name": "Twitter/X Handles", "func": "filter_handles", "type": PREFILTER_SWITCH, "priority": 5, "info": "Filter out WORD tokens that match a Twitter/X handle format"},
+        "u": {"name": "URLs", "func": "filter_urls", "type": PREFILTER_SWITCH, "priority": 7, "info": "Filter out WORD tokens that match URL format"},
+        "U": {"name": "UNCs", "func": "filter_uncs", "type": PREFILTER_SWITCH, "priority": 12, "info": "Filter out WORD tokens that match UNC format"},
+        "f": {"name": "Min Frequency", "func": "min_frequency", "type": POSTFILTER_ARG, "priority": 0, "info": "Filter out ALL tokens appearing on less than N pages"},
+        "F": {"name": "Max Frequency", "func": "max_frequency", "type": POSTFILTER_ARG, "priority": 0, "info": "Filter out ALL tokens appearing on more than N pages"},
+        "r": {"name": "Regex", "func": "regex", "type": POSTFILTER_ARG, "priority": 0, "info": "Filter out ALL tokens that fail to match the specified regex"},
+        "D": {"name": "Dictionary", "func": "filter_dictionary", "type": POSTFILTER_SWITCH, "priority": 1, "info": "Filter out lowercase WORD tokens that match a dictionary word"},
+        "M": {"name": "Modifiers", "func": "filter_modifiers", "type": POSTFILTER_SWITCH, "priority": 2, "info": "Filter out WORD tokens that are not a noun or verb"}
     }
 
     def __init__(self, pre_filters=[], post_filters=[], indent=8):
@@ -86,13 +86,14 @@ class WordFilter:
             str: Sorted list of filter names and parameters.
         """
         result = f"{' '*self.indent}Pre-filters:\n" if len(self.pre_filters) > 0 else ""
-        for filter_name, filter_param in sorted(self.pre_filters):
-            result += f"{' '*self.indent}    {filter_name[7:] if filter_name.startswith("filter_") else filter_name}: {filter_param if filter_param is not None else True}\n"
+        for filter_func, filter_param in sorted(self.pre_filters):
+            f = next(v for v in self.FILTERS.values() if v["func"] == filter_func)
+            result += f"{' '*self.indent}    {f["name"]}: {filter_param if filter_param is not None else True}\n"
 
         result += f"{' '*self.indent}Post-filters:\n" if len(self.pre_filters) > 0 else ""
-        for filter_name, filter_param in sorted(self.post_filters):
-            result += f"{' '*self.indent}    {filter_name[7:] if filter_name.startswith("filter_") else filter_name}: {filter_param if filter_param is not None else True}\n"
-
+        for filter_func, filter_param in sorted(self.post_filters):
+            f = next(v for v in self.FILTERS.values() if v["func"] == filter_func)
+            result += f"{' '*self.indent}    {f["name"]}: {filter_param if filter_param is not None else True}\n"
         return result.strip('\n')
 
     @classmethod
@@ -116,21 +117,26 @@ class WordFilter:
         Returns:
             str: Filter documentation.
         """
+        max_pre_arg = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.PREFILTER_ARG])
+        max_pre_switch = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.PREFILTER_SWITCH])
+        max_post_arg = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.POSTFILTER_ARG])
+        max_post_switch = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.POSTFILTER_SWITCH])
+
         return "\n".join([
             "Filtering:",
             "    Pre-filters are applied to tokens as the index is built. ",
             "    Pre-filters that require args are applied first. They are disabled by default unless an arg is provided."
-            ] + [f"{v["info"]}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_ARG] + [
+            ] + [f"        {v["name"] + " "*(max_pre_arg - len(v["name"]))}  {v["info"].replace("\n", "\n"+" "*(14 + max_pre_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_ARG] + [
             "",
             "    Switch pre-filters can be managed with -d and -e. They are enabled by default."
-            ] + [f"{v["info"]}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_SWITCH] + [
+            ] + [f"        {k} - {v["name"] + " "*(max_pre_switch - len(v["name"]))}  {v["info"].replace("\n", "\n"+" "*(14 + max_pre_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_SWITCH] + [
             f"",
             f"    Post-filters are applied to tokens after the index is built. ",
             f"    Post-filters that require args are applied first. They are disabled by default unless an arg is provided."
-            ] + [f"{v["info"]}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_ARG] + [
+            ] + [f"        {v["name"] + " "*(max_post_arg - len(v["name"]))}  {v["info"].replace("\n", "\n"+" "*(14 + max_post_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_ARG] + [
             f"",
             f"    Switch Post-filters can be managed with -d and -e. They are enabled by default."
-            ] + [f"{v["info"]}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_SWITCH]
+            ] + [f"        {k} - {v["name"] + " "*(max_post_switch - len(v["name"]))}  {v["info"].replace("\n", "\n"+" "*(14 + max_post_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_SWITCH]
         )
 
     def build_from_argparse_args(self, args):
@@ -183,9 +189,9 @@ class WordFilter:
         for k in filters:
             f = self.FILTERS[k]
             if f["type"] == self.PREFILTER_SWITCH:
-                self.pre_filters.insert(f["priority"], (f["name"], None))
+                self.pre_filters.insert(f["priority"], (f["func"], None))
             else:
-                self.post_filters.insert(f["priority"], (f["name"], None))
+                self.post_filters.insert(f["priority"], (f["func"], None))
 
     def prefilter(self, word: str) -> bool:
         """
@@ -1021,23 +1027,25 @@ def main():
     print_status(verbose, f"        Phrases    : {len(tokenizer.phrases)}\n")
 
     print_status(verbose, f"        Pre-filter Hits:")
-    for f, _ in tokenizer.filter.pre_filters:
-        if tokenizer.filter.stats[f] > 0:
-            print_status(verbose, f"            {f[7:] if f.startswith("filter_") else f}: {tokenizer.filter.stats[f]}")
+    for f_func, _ in tokenizer.filter.pre_filters:
+        if tokenizer.filter.stats[f_func] > 0:
+            f = next(v for v in WordFilter.FILTERS.values() if v["func"] == f_func)
+            print_status(verbose, f"            {f["name"]}: {tokenizer.filter.stats[f_func]}")
     print_status(verbose, "")
 
     # post-filter
     print_status(verbose, f"    [+] Cleaning")
     tokenizer.words = word_filter.postfilter(tokenizer.words)
-    tokenizer.filter.remove("filter_dictionary")
+    d = tokenizer.filter.remove("filter_dictionary") # do not apply to phrases
     tokenizer.phrases = word_filter.postfilter(tokenizer.phrases)
     print_status(verbose, f"        Words      : {len(tokenizer.words)}")
     print_status(verbose, f"        Phrases    : {len(tokenizer.phrases)}\n")
 
     print_status(verbose, f"        Post-filter Hits:")
-    for f, _ in tokenizer.filter.post_filters + [("filter_dictionary", None)]:
-        if tokenizer.filter.stats[f] > 0:
-            print_status(verbose, f"            {f[7:] if f.startswith("filter_") else f}: {tokenizer.filter.stats[f]}")
+    for f_func, _ in tokenizer.filter.post_filters + [("filter_dictionary", None)] if d else []:
+        if tokenizer.filter.stats[f_func] > 0:
+            f = next(v for v in WordFilter.FILTERS.values() if v["func"] == f_func)
+            print_status(verbose, f"            {f["name"]}: {tokenizer.filter.stats[f_func]}")
     print_status(verbose, "")
 
     # write output
