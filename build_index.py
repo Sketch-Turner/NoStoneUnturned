@@ -760,7 +760,7 @@ class Tokenizer:
                 self.phrase += f" {self.phrase_conn}"
                 self.phrase_conn = ""
 
-            if w not in self.PHRASE_CONNECTORS:
+            if w.lower() not in self.PHRASE_CONNECTORS:
                 self.phrase += f" {w}" if self.phrase else w
 
         elif self.phrase and w in self.PHRASE_CONNECTORS:
