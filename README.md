@@ -50,7 +50,7 @@ Recommended Settings:
   Maximum token length for items added to the index
 - `-F 10`  
   Exclude words appearing on more than 10 pages
-- `-z 4.0`
+- `-z 4.0`  
   Exclude words with a Zipf score > 4.0
 - `-r`  
   Regex filter for accepted tokens
