@@ -17,7 +17,7 @@ def read_files(files):
                         continue
                     count += 1
                     # process line
-                    word, pages = line.strip().split(': ')
+                    word, pages = line.strip().rsplit(':', 1)
                     if ',' in pages or '-' in pages:
                         pages = f"{i}-({pages})"
                     else:
