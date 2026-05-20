@@ -24,13 +24,21 @@ class WordFilter:
     with open("wordlists/names.txt", "r", encoding="utf-8") as f:
         NAMES = set(line.strip() for line in f)
 
+    # load pronouns
+    PRONOUNS = set()
+    with open("wordlists/pronouns.txt", "r", encoding="utf-8") as f:
+        PRONOUNS = set(line.strip() for line in f)
+    
+    # load calendar words
+    CALENDAR = set()
+    with open("wordlists/calendar.txt", "r", encoding="utf-8") as f:
+        CALENDAR = set(line.strip() for line in f)
+
     # load words
     WORDS = set(word for word in nltk_words.words() if word.islower())
 
-    # filter sets
+    # contraction filter
     CONTRACTION_SUFFIXES = ("'re", "'ve", "'ll", "'d", "n't", "'m")
-    PRONOUNS = {"i", "you", "he", "she", "it", "we", "they", "me", "him", "her", "us", "them", "my", "your", "his", "its", "our", "their", "mine", "yours", "hers", "ours", "theirs"}
-    CALENDAR = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"}
 
     # filter mapping
     PREFILTER_SWITCH = 0
@@ -299,7 +307,6 @@ class WordFilter:
             return True
         
         return False
-
 
     # pre-filters
     def _min_length(self, word: str, length: int) -> bool:
@@ -586,10 +593,15 @@ class Tokenizer:
     """
     Tokenizes text input and indexes words and phrases by page number.
     """
-    WORD_SPECIAL = ['\\', '/', '-', '_', '&', '.', '@', '%', ':', '?', "=", "\'"] # special chars that can be part of a word
+    WORD_SPECIAL = {'\\', '/', '-', '_', '&', '.', '@', '%', ':', '?', "=", "\'"} # special chars that can be part of a word
     PAGE_DIVIDER = '\f' # signifies end of page
-    PHRASE_CONNECTORS = ["of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs","via"] # used to connect words in phrases (not start/end)
-    PHRASE_SEPARATORS = [",", ";", ":", "–", "•", ".", "!", "?"] # special chars that end a phrase
+    PHRASE_CONNECTORS = {"of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs","via"} # used to connect words in phrases (not start/end)
+    PHRASE_SEPARATORS = {",", ";", ":", "–", "•", ".", "!", "?"} # special chars that end a phrase
+    
+    # load middle
+    PHRASE_MIDDLE = set() # may only be found in the middle of phrase, else discarded
+    with open("wordlists/junk.txt", "r", encoding="utf-8") as f:
+        PHRASE_MIDDLE = set(line.strip() for line in f)
 
     def __init__(self, page_offset:int=0, filter:WordFilter=None, mode=0):
         """
@@ -637,7 +649,7 @@ class Tokenizer:
             "    Text is tokenized into WORD and PHRASE tokens.",
             "    WORD tokens do not include spaces.",
             "    PHRASE tokens are built if one or more consecutive WORD tokens meets any of the following criteria:",
-            "        1. Contains a capital letter",
+            "        1. Contains a capital letter and is not found in wordlists/junk.txt (First WORD only)",
             "        2. Inside double quotes",
             "        3. Inside parentheses",
             "\n"
@@ -748,7 +760,7 @@ class Tokenizer:
         Add a word to the active parenthetical buffer.
         """
         if self.paren_depth > 0:
-            if w not in self.PHRASE_CONNECTORS:
+            if w not in self.PHRASE_CONNECTORS and w.lower() not in self.PHRASE_MIDDLE:
                 self.parens += f" {w}" if self.parens else w
 
     def _process_phrase_word(self, w: str):
@@ -760,7 +772,10 @@ class Tokenizer:
                 self.phrase += f" {self.phrase_conn}"
                 self.phrase_conn = ""
 
-            if w.lower() not in self.PHRASE_CONNECTORS:
+            if self.phrase and w.lower() in self.PHRASE_MIDDLE:
+                self.phrase_conn += f" {w}" if self.phrase_conn else w
+
+            elif w.lower() not in self.PHRASE_CONNECTORS and w.lower() not in self.PHRASE_MIDDLE:
                 self.phrase += f" {w}" if self.phrase else w
 
         elif self.phrase and w in self.PHRASE_CONNECTORS:
@@ -842,6 +857,8 @@ class Tokenizer:
         """
         if b == self.PAGE_DIVIDER:
             self.page += 1
+            self.paren_depth = 0
+            self.quoting = False
 
     def _process_byte(self, b: int):
         """
@@ -899,7 +916,7 @@ def read_file(filename)->bytes:
             data = f.read()
 
     except Exception as e:
-        print(f"    [!] Error reading file: {e}")
+        print(f"    [!] Error reading {filename}: {e}")
     
     return data
 
