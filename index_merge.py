@@ -2,9 +2,18 @@ import argparse
 from collections import defaultdict
 
 def read_files(files):
+    """
+    Read and merge files
+
+    Args:
+        files (list[str]): Filenames
+
+    Returns:
+        defaultdict[list]: File contents.
+    """
     data = defaultdict(list)
     for i, file in enumerate(files, start=1):
-        print(f"READING: {file}")
+        print(f"[+] Reading: {file}")
         try:
             with open(file, 'rt', encoding='utf-8') as f:
                 count = 0
@@ -25,25 +34,34 @@ def read_files(files):
                         pages = f"{i}-{pages}"
                     data[word].append(pages)
                 
-                print(f"    ENTRIES: {count}")
+                print(f"    Entries: {count}")
         except Exception as e:
-            print(f"    Error opening file: {e}")
+            print(f"    Error opening {file}: {e}")
     
     return data
 
 def print_pages(pages):
+    """
+    Page number printing helper
+    """
     return ", ".join(sorted(set(pages)))
 
 def format_index(index):
+    """
+    Format one or more indexes into a grouped alphabetical string.
+
+    Args:
+        *indexes: Dictionaries mapping words/phrases to page-number sets.
+
+    Returns:
+        Formatted index string.
+    """
     output = []
     grouped = defaultdict(list)
 
     for w, page_list in index.items():
         grouped[w[0].upper()].append((w, page_list))
 
-    # -------------------------
-    # OUTPUT
-    # -------------------------
     for letter in sorted(grouped):
         output.append(f"\n[{letter}]")
 
@@ -80,14 +98,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     combined = read_files(args.files)
-    print(f"TOTAL ENTRIES: {len(combined)}")
-    print("Merging...")
+    print(f"\n    Total Entries: {len(combined)}\n")
+    print("[+] Merging")
 
     output = format_index(combined)
-    print(f"MERGED SIZE: {output.count("\n")+1}")
+    print(f"    Merged Size: {output.count("\n")+1}")
 
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(output)
 
-    print(f"Index written to: {args.output}")
-
+    print(f"    Index written to: {args.output}")
