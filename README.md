@@ -10,6 +10,7 @@ Casts a wide net but it gets everything. Could be a good option for any open-boo
 ---
 ## Dependencies
 
+### Python 3.13
 - nltk
 - pdfminer.six
 - pypdf
