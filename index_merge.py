@@ -62,8 +62,11 @@ def format_index(index):
     for w, page_list in index.items():
         grouped[w[0].upper()].append((w, page_list))
 
-    for letter in sorted(grouped):
-        output.append(f"\n[{letter}]")
+    for i, letter in enumerate(sorted(grouped)):
+        if i > 0:
+            output.append(f"\n[{letter}]")
+        else:
+            output.append(f"[{letter}]")
 
         # sort
         combined = sorted(grouped[letter], key=lambda x: x[0])
