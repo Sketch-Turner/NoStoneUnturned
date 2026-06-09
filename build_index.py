@@ -629,6 +629,7 @@ class Tokenizer:
         self.paren_depth = 0
         self.phrase = ""
         self.phrase_conn = ""
+        self.nl_count = 0
         self.page = 1 - page_offset
 
         # words/phrases
@@ -844,7 +845,7 @@ class Tokenizer:
         """
         Flush phrase buffer on separator characters.
         """
-        if self.phrase and b in self.PHRASE_SEPARATORS:
+        if (self.phrase and b in self.PHRASE_SEPARATORS) or (self.nl_count > 1):
             if self.page > 0:
                 self._add_phrase(self.phrase, self.page)
 
@@ -868,6 +869,11 @@ class Tokenizer:
             b (int): Byte to process.
         """
         b = chr(b)
+
+        if b == '\n':
+            self.nl_count += 1
+        else:
+            self.nl_count = 0
 
         if self._process_word_char(b):
             return
