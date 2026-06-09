@@ -58,7 +58,8 @@ Recommended Settings:
 
 4. Merge indexes
 ```bash
-index_merge.py -o merged_index.txt index1.txt index2.txt index3.txt
+index_merge.py -F 10 -o merged_index.txt index1.txt index2.txt index3.txt
 ```
-
-
+Recommended Settings:
+- `-F 10`  
+  Exclude words appearing on more than 10 pages total
