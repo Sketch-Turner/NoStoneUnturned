@@ -595,7 +595,7 @@ class Tokenizer:
     """
     WORD_SPECIAL = {'\\', '/', '-', '_', '&', '.', '@', '%', ':', '?', "=", "\'"} # special chars that can be part of a word
     PAGE_DIVIDER = '\f' # signifies end of page
-    PHRASE_CONNECTORS = {"of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs","via"} # used to connect words in phrases (not start/end)
+    PHRASE_CONNECTORS = {"of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs","vs.","via"} # used to connect words in phrases (not start/end)
     PHRASE_SEPARATORS = {",", ";", ":", "–", "•", ".", "!", "?"} # special chars that end a phrase
     
     # load middle
@@ -872,11 +872,19 @@ class Tokenizer:
         if self._process_word_char(b):
             return
 
+        w = self.word.lower() + self.word_spec
+        if w in self.PHRASE_CONNECTORS:
+            self.word = w
+
         self._flush_word()
 
         self._process_quotes(b)
         self._process_parens(b)
-        self._process_phrase_separator(b)
+
+        # special case for connectors with special chars
+        if not w in self.PHRASE_CONNECTORS:
+            self._process_phrase_separator(b)
+
         self._process_page(b)
 
     def tokenize(self, data:bytes):
