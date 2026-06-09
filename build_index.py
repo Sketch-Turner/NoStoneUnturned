@@ -635,8 +635,8 @@ class Tokenizer:
         self.words = defaultdict(set) # word: pages
         self.phrases = defaultdict(set) # phrase: pages
 
-    @classmethod
-    def get_tokenizer_info(cls) -> str:
+    @staticmethod
+    def get_tokenizer_info() -> str:
         """
         Build and return formatted help text describing Tokenizer.
 
