@@ -1,5 +1,6 @@
 import argparse
 from collections import defaultdict
+import re
 
 def read_files(files):
     """
@@ -46,7 +47,29 @@ def print_pages(pages):
     """
     return ", ".join(sorted(set(pages)))
 
-def format_index(index):
+def count_pages(pages):
+    """
+    Count number of pages using formatted page range.
+    """
+    total = 0
+
+    entries = re.findall(r'(\d+)-(\([^)]*\)|\d+)', pages)
+
+    for _, pages in entries:
+        if pages.startswith('('):
+            pages = pages[1:-1]
+            for item in map(str.strip, pages.split(',')):
+                if '-' in item:
+                    start, end = map(int, item.split('-'))
+                    total += end - start + 1
+                else:
+                    total += 1
+        else:
+            total += 1
+
+    return total
+
+def format_index(index, min_freq=None, max_freq=None):
     """
     Format one or more indexes into a grouped alphabetical string.
 
@@ -72,10 +95,19 @@ def format_index(index):
         combined = sorted(grouped[letter], key=lambda x: x[0])
 
         header = combined[0]
-        output.append(f"{header[0]}: {print_pages(header[1])}")
+        pages = print_pages(header[1])
+        count = count_pages(pages)
+        if ((min_freq is None or count >= min_freq) and (max_freq is None or count <= max_freq)):
+            output.append(f"{header[0]}: {pages}")
+
         for t in combined[1:]:
             text = t[0]
-            pages = t[1]
+            pages = print_pages(t[1])
+            count = count_pages(pages)
+
+            # check frequency
+            if (not ((min_freq is None or count >= min_freq) and (max_freq is None or count <= max_freq))):
+                continue
 
             # check duplicates
             if text == header[0]:
@@ -83,10 +115,11 @@ def format_index(index):
             
             # check if text fits header
             if header[0].split(" ")[0] == text.split(" ")[0]:
-                output.append(f"    {text}: {print_pages(pages)}")
+                output.append(f"    {text}: {pages}")
             else:
                 header = t
-                output.append(f"{header[0]}: {print_pages(header[1])}")
+                pages = print_pages(header[1])
+                output.append(f"{header[0]}: {pages}")
 
     return "\n".join(output)
 
@@ -98,13 +131,15 @@ if __name__ == "__main__":
 
     parser.add_argument("files", nargs="+", help="Index TXT files in numerical order.")
     parser.add_argument("-o", "--output", help="Output file.")
+    parser.add_argument("-f", "--min-frequency", type=int, default=None, help="Filter out ALL tokens appearing on less than N pages in total")
+    parser.add_argument("-F", "--max-frequency", type=int, default=None, help="Filter out ALL tokens appearing on more than N pages in total")
     args = parser.parse_args()
 
     combined = read_files(args.files)
     print(f"\n    Total Entries: {len(combined)}\n")
     print("[+] Merging")
 
-    output = format_index(combined)
+    output = format_index(combined, min_freq=args.min_frequency, max_freq=args.max_frequency)
     print(f"    Merged Size: {output.count("\n")+1}")
 
     with open(args.output, "w", encoding="utf-8") as f:
