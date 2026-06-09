@@ -42,7 +42,7 @@ build_index.py -v -o 2 -l 2 -L 50 -F 10 -z 4.0 -r '[a-zA-Z0-9 :.&_-]+' raw.txt i
 ```
 Recommended Settings:
 - `-v`  
-  Verbose output (does not affect index)
+  Verbose output (does not affect index content)
 - `-o 2`  
   PDF page numbering starts on the second page
 - `-l 2`  
