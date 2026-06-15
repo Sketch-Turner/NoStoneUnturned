@@ -593,7 +593,7 @@ class Tokenizer:
     """
     Tokenizes text input and indexes words and phrases by page number.
     """
-    WORD_SPECIAL = {'\\', '/', '-', '_', '&', '.', '@', '%', ':', '?', "=", "\'"} # special chars that can be part of a word
+    WORD_SPECIAL = {'\\', '/', '-', '_', '&', '.', '@', '%', ':', '?', "=", "+", "\'", "$"} # special chars that can be part of a word
     PAGE_DIVIDER = '\f' # signifies end of page
     PHRASE_CONNECTORS = {"of","the","and","&","or","in","on","for","to","by","with","as","at","from","a","an","vs","vs.","via"} # used to connect words in phrases (not start/end)
     PHRASE_SEPARATORS = {",", ";", ":", "–", "•", ".", "!", "?"} # special chars that end a phrase
@@ -720,6 +720,11 @@ class Tokenizer:
         
         # special char exception for @handles
         elif b == "@" and not self.word and not self.word_spec:
+            self.word_spec += b
+            return True
+        
+        # special char exception for $files
+        elif b == "$" and not self.word and not self.word_spec:
             self.word_spec += b
             return True
         
