@@ -773,7 +773,7 @@ class Tokenizer:
         """
         Process phrase construction logic for a word.
         """
-        if self._has_capital(w):
+        if self._has_capital(w) or (self.phrase and w.isnumeric()):
             if self.phrase and self.phrase_conn:
                 self.phrase += f" {self.phrase_conn}"
                 self.phrase_conn = ""
