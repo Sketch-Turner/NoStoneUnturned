@@ -6,7 +6,7 @@ Automatic Index Builder
 - [Overview](#overview)
 - [Requirements](#requirements)
   - [Optional 3rd Party Accessories](#optional-3rd-party-accessories)
-  - [Python 3.13](#python-313)
+  - [Python 3.10](#python-310)
 - [Workflow (Linux)](#workflow-linux)
   - [3rd Party Installs](#3rd-party-installs)
   - [Python Environment Setup](#python-environment-setup)
@@ -41,7 +41,7 @@ Casts a wide net but it gets everything. Could be a good option for any open-boo
  - qpdf
  - pdftotext
 
-### Python 3.13
+### Python 3.10
  - PyMuPDF
  - Pillow
  - numpy

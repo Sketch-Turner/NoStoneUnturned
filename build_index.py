@@ -96,15 +96,15 @@ class WordFilter:
         Returns:
             str: Sorted list of filter names and parameters.
         """
-        result = f"{' '*self.indent}Pre-filters:\n" if len(self.pre_filters) > 0 else ""
+        result = (f"{' '*self.indent}Pre-filters:" + '\n') if len(self.pre_filters) > 0 else ""
         for filter_func, filter_param in sorted(self.pre_filters):
-            f = next(v for v in self.FILTERS.values() if v["func"] == filter_func)
-            result += f"{' '*self.indent}    {f["name"]}: {filter_param if filter_param is not None else True}\n"
+            f = next(v for v in self.FILTERS.values() if v['func'] == filter_func)
+            result += f"{' '*self.indent}    {f['name']}: {filter_param if filter_param is not None else True}" + '\n'
 
-        result += f"{' '*self.indent}Post-filters:\n" if len(self.pre_filters) > 0 else ""
+        result += (f"{' '*self.indent}Post-filters:" + '\n') if len(self.pre_filters) > 0 else ""
         for filter_func, filter_param in sorted(self.post_filters):
-            f = next(v for v in self.FILTERS.values() if v["func"] == filter_func)
-            result += f"{' '*self.indent}    {f["name"]}: {filter_param if filter_param is not None else True}\n"
+            f = next(v for v in self.FILTERS.values() if v['func'] == filter_func)
+            result += f"{' '*self.indent}    {f['name']}: {filter_param if filter_param is not None else True}" + '\n'
         return result.strip('\n')
 
     @classmethod
@@ -118,7 +118,7 @@ class WordFilter:
         Returns:
             list: Matching filter keys.
         """
-        return [k for k, v in cls.FILTERS.items() if v["type"] == type]
+        return [k for k, v in cls.FILTERS.items() if v['type'] == type]
 
     @classmethod
     def get_filter_info(cls) -> str:
@@ -128,27 +128,27 @@ class WordFilter:
         Returns:
             str: Filter documentation.
         """
-        max_pre_arg = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.PREFILTER_ARG])
-        max_pre_switch = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.PREFILTER_SWITCH])
-        max_post_arg = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.POSTFILTER_ARG])
-        max_post_switch = max([len(v["name"]) for v in cls.FILTERS.values() if v["type"] == cls.POSTFILTER_SWITCH])
+        max_pre_arg = max([len(v['name']) for v in cls.FILTERS.values() if v['type'] == cls.PREFILTER_ARG])
+        max_pre_switch = max([len(v['name']) for v in cls.FILTERS.values() if v['type'] == cls.PREFILTER_SWITCH])
+        max_post_arg = max([len(v['name']) for v in cls.FILTERS.values() if v['type'] == cls.POSTFILTER_ARG])
+        max_post_switch = max([len(v['name']) for v in cls.FILTERS.values() if v['type'] == cls.POSTFILTER_SWITCH])
         nli_s = 15 # switch newline indent
         nli_a = 11 # arg nl indent
-        return "\n".join([
+        return '\n'.join([
             "Filtering:",
             "    Pre-filters are applied to tokens as the index is built. ",
             "    Pre-filters that require args are applied first. They are disabled by default unless an arg is provided."
-            ] + [f"        {v["name"] + " "*(max_pre_arg - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli_a + max_pre_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_ARG] + [
+            ] + [f"        {v['name'] + ' '*(max_pre_arg - len(v['name']))} : {v['info'].replace(chr(10), chr(10)+' '*(nli_a + max_pre_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v['type'] == cls.PREFILTER_ARG] + [
             "",
             "    Switch pre-filters can be managed with -d and -e. They are enabled by default."
-            ] + [f"        {k} - {v["name"] + " "*(max_pre_switch - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli_s + max_pre_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.PREFILTER_SWITCH] + [
+            ] + [f"        {k} - {v['name'] + ' '*(max_pre_switch - len(v['name']))} : {v['info'].replace(chr(10), chr(10)+' '*(nli_s + max_pre_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v['type'] == cls.PREFILTER_SWITCH] + [
             f"",
             f"    Post-filters are applied to tokens after the index is built. ",
             f"    Post-filters that require args are applied first. They are disabled by default unless an arg is provided."
-            ] + [f"        {v["name"] + " "*(max_post_arg - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli_a + max_post_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_ARG] + [
+            ] + [f"        {v['name'] + ' '*(max_post_arg - len(v['name']))} : {v['info'].replace(chr(10), chr(10)+' '*(nli_a + max_post_arg))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v['type'] == cls.POSTFILTER_ARG] + [
             f"",
             f"    Switch Post-filters can be managed with -d and -e. They are enabled by default."
-            ] + [f"        {k} - {v["name"] + " "*(max_post_switch - len(v["name"]))} : {v["info"].replace("\n", "\n"+" "*(nli_s + max_post_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v["type"] == cls.POSTFILTER_SWITCH]
+            ] + [f"        {k} - {v['name'] + ' '*(max_post_switch - len(v['name']))} : {v['info'].replace(chr(10), chr(10)+' '*(nli_s + max_post_switch))}" for k, v in sorted(cls.FILTERS.items(), key=lambda x: x[0].lower()) if v['type'] == cls.POSTFILTER_SWITCH]
         )
 
     def build_from_argparse_args(self, args):
@@ -162,13 +162,13 @@ class WordFilter:
         self.post_filters = []
 
         # get enabled switch filters
-        filters = set(k for k, v in self.FILTERS.items() if v["type"] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH])
+        filters = set(k for k, v in self.FILTERS.items() if v['type'] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH])
         if args.disable:
             for f in args.disable:
                 if f == "*":
                     filters = set()
                     break
-                elif f in self.FILTERS and self.FILTERS[f]["type"] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH]:
+                elif f in self.FILTERS and self.FILTERS[f]['type'] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH]:
                     filters.remove(f)
                 else:
                     raise ValueError(f"Unknown filter: {f}")
@@ -176,32 +176,32 @@ class WordFilter:
             filters = set()
             for f in args.enable:
                 if f == "*":
-                    filters = set(k for k, v in self.FILTERS.items() if v["type"] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH])
+                    filters = set(k for k, v in self.FILTERS.items() if v['type'] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH])
                     break
-                elif f in self.FILTERS and self.FILTERS[f]["type"] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH]:
+                elif f in self.FILTERS and self.FILTERS[f]['type'] in [self.PREFILTER_SWITCH, self.POSTFILTER_SWITCH]:
                     filters.add(f)
                 else:
                     raise ValueError(f"Unknown filter: {f}")
 
         # pre args
-        for f in [v for v in self.FILTERS.values() if v["type"]  == self.PREFILTER_ARG]:
-            f_ptr = getattr(args, f["func"], None)
+        for f in [v for v in self.FILTERS.values() if v['type']  == self.PREFILTER_ARG]:
+            f_ptr = getattr(args, f['func'], None)
             if f_ptr:
-                self.pre_filters.insert(f["priority"], (f["func"], f_ptr))
+                self.pre_filters.insert(f['priority'], (f['func'], f_ptr))
 
         # post args
-        for f in [v for v in self.FILTERS.values() if v["type"]  == self.POSTFILTER_ARG]:
-            f_ptr = getattr(args, f["func"], None)
+        for f in [v for v in self.FILTERS.values() if v['type']  == self.POSTFILTER_ARG]:
+            f_ptr = getattr(args, f['func'], None)
             if f_ptr:
-                self.post_filters.insert(f["priority"], (f["func"], f_ptr))
+                self.post_filters.insert(f['priority'], (f['func'], f_ptr))
 
         # switches
         for k in filters:
             f = self.FILTERS[k]
-            if f["type"] == self.PREFILTER_SWITCH:
-                self.pre_filters.insert(f["priority"], (f["func"], None))
+            if f['type'] == self.PREFILTER_SWITCH:
+                self.pre_filters.insert(f['priority'], (f['func'], None))
             else:
-                self.post_filters.insert(f["priority"], (f["func"], None))
+                self.post_filters.insert(f['priority'], (f['func'], None))
 
     def prefilter(self, word: str) -> bool:
         """
@@ -538,7 +538,7 @@ class WordFilter:
         word = item[0]
 
         # skip phrases
-        if " " in word:
+        if ' ' in word:
             return True
 
         pos = nltk.pos_tag([word])[0][1]
@@ -585,7 +585,7 @@ class WordFilter:
             bool: True if the word frequency is < score, otherwise False.
         """
         word = item[0]
-        if " " in word:
+        if ' ' in word:
             return True
         return zipf_frequency(word, "en") < score
 
@@ -644,7 +644,7 @@ class Tokenizer:
         Returns:
             str: Tokenizer documentation.
         """
-        return "\n".join([
+        return '\n'.join([
             "Tokenization:",
             "    TXT files are split into pages using the form feed character (0x0C).",
             "    Text is tokenized into WORD and PHRASE tokens.",
@@ -653,7 +653,7 @@ class Tokenizer:
             "        1. Contains a capital letter and is not found in wordlists/junk.txt (First WORD only)",
             "        2. Inside double quotes",
             "        3. Inside parentheses",
-            "\n"
+            '\n'
         ])
 
     def _has_capital(self, word:str)->bool:
@@ -989,7 +989,7 @@ def format(*indexes:defaultdict[set]) -> str:
 
     for i, letter in enumerate(sorted(grouped)):
         if i > 0:
-            output.append(f"\n[{letter}]")
+            output.append('\n' + f"[{letter}]")
         else:
             output.append(f"[{letter}]")
 
@@ -1007,13 +1007,13 @@ def format(*indexes:defaultdict[set]) -> str:
                 continue
             
             # check if text fits header
-            if header[0].split(" ")[0] == text.split(" ")[0]:
+            if header[0].split(' ')[0] == text.split(' ')[0]:
                 output.append(f"    {text}: {compress_pages(pages)}")
             else:
                 header = t
                 output.append(f"{header[0]}: {compress_pages(header[1])}")
 
-    return "\n".join(output)
+    return '\n'.join(output)
 
 def print_status(verbose:bool, *args, **kwargs):
     """
@@ -1068,27 +1068,27 @@ def main():
     print_status(verbose, f"[+] Reading        : {input_file}")
     filetype = 1 if input_file.upper().endswith("PDF") else 0
     data = read_file(filename=input_file)
-    print_status(verbose, f"    Mode           : {["TXT", "PDF"][filetype]}")
-    print_status(verbose, f"    Size (Bytes)   : {len(data)}\n")
+    print_status(verbose, f"    Mode           : {['TXT', 'PDF'][filetype]}")
+    print_status(verbose, f"    Size (Bytes)   : {len(data)}" + '\n')
 
     # prepare filter
     print_status(verbose, f"    [+] Preparing Filters")
     word_filter = WordFilter()
     word_filter.build_from_argparse_args(args)
-    print_status(verbose, f"{word_filter}\n")
+    print_status(verbose, f"{word_filter}" + '\n')
 
     # tokenize
     print_status(verbose, f"    [+] Tokenizing")
     tokenizer = Tokenizer(page_offset=offset, filter=word_filter, mode=filetype)
     tokenizer.tokenize(data)
     print_status(verbose, f"        Words      : {len(tokenizer.words)}")
-    print_status(verbose, f"        Phrases    : {len(tokenizer.phrases)}\n")
+    print_status(verbose, f"        Phrases    : {len(tokenizer.phrases)}" + '\n')
 
     print_status(verbose, f"        Pre-filter Hits:")
     for f_func, _ in tokenizer.filter.pre_filters:
         if tokenizer.filter.stats[f_func] > 0:
-            f = next(v for v in WordFilter.FILTERS.values() if v["func"] == f_func)
-            print_status(verbose, f"            {f["name"]}: {tokenizer.filter.stats[f_func]}")
+            f = next(v for v in WordFilter.FILTERS.values() if v['func'] == f_func)
+            print_status(verbose, f"            {f['name']}: {tokenizer.filter.stats[f_func]}")
     print_status(verbose, "")
 
     # post-filter
@@ -1102,8 +1102,8 @@ def main():
     print_status(verbose, f"        Post-filter Hits:")
     for f_func, _ in tokenizer.filter.post_filters + [("filter_dictionary", None)] if d else []:
         if tokenizer.filter.stats[f_func] > 0:
-            f = next(v for v in WordFilter.FILTERS.values() if v["func"] == f_func)
-            print_status(verbose, f"            {f["name"]}: {tokenizer.filter.stats[f_func]}")
+            f = next(v for v in WordFilter.FILTERS.values() if v['func'] == f_func)
+            print_status(verbose, f"            {f['name']}: {tokenizer.filter.stats[f_func]}")
     print_status(verbose, "")
 
     # write output
@@ -1111,10 +1111,10 @@ def main():
     result = format(tokenizer.words, tokenizer.phrases)
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(result)
-    print_status(verbose, f"        Lines      : {result.count("\n") + 1}")
+    print_status(verbose, f"        Lines      : {result.count(chr(10)) + 1}")
 
     if not verbose:
-        print(f"{result.count("\n") + 1} Lines writen to: {output_file}")
+        print(f"{result.count(chr(10)) + 1} Lines writen to: {output_file}")
 
 
 if __name__ == "__main__":

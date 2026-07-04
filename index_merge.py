@@ -87,7 +87,7 @@ def format_index(index, min_freq=None, max_freq=None):
 
     for i, letter in enumerate(sorted(grouped)):
         if i > 0:
-            output.append(f"\n[{letter}]")
+            output.append('\n' + f"[{letter}]")
         else:
             output.append(f"[{letter}]")
 
@@ -136,11 +136,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     combined = read_files(args.files)
-    print(f"\n    Total Entries: {len(combined)}\n")
+    print('\n' + f"    Total Entries: {len(combined)}" + '\n')
     print("[+] Merging")
 
     output = format_index(combined, min_freq=args.min_frequency, max_freq=args.max_frequency)
-    print(f"    Merged Size: {output.count("\n")+1}")
+    print(f"    Merged Size: {output.count(chr(10))+1}")
 
     with open(args.output, "w", encoding="utf-8") as f:
         f.write(output)
