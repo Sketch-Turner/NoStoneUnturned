@@ -1,0 +1,11 @@
+PyMuPDF
+Pillow
+numpy
+python-doctr
+torch
+torchvision
+pdfminer.six
+pypdf
+wordfreq
+nltk
+tqdm
