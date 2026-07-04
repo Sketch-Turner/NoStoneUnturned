@@ -11,20 +11,20 @@ Automatic Index Builder
   - [3rd Party Installs](#3rd-party-installs)
   - [Python Environment Setup](#python-environment-setup)
   - [Index Building](#index-building)
-    - [1. Decrypt PDFs (as required)](#1-decrypt-pdfs-as-required)
-    - [2. Extract text from images (as required)](#2-extract-text-from-images-as-required)
-    - [3. Convert to TXT (optional)](#3-convert-to-txt-optional)
-    - [4. Build index](#4-build-index)
-    - [5. Merge indexes](#5-merge-indexes)
+    - [Decrypt PDFs](#1-decrypt-pdfs-as-required)
+    - [Extract text from images](#2-extract-text-from-images-as-required)
+    - [Convert to TXT](#3-convert-to-txt-optional)
+    - [Build index](#4-build-index)
+    - [Merge indices](#5-merge-indices)
 - [Workflow (Windows)](#workflow-windows)
   - [3rd Party Installs](#3rd-party-installs-1)
   - [Python Environment Setup](#python-environment-setup-1)
   - [Index Building](#index-building-1)
-    - [1. Decrypt PDFs (as required)](#1-decrypt-pdfs-as-required-1)
-    - [2. Extract text from images (as required)](#2-extract-text-from-images-as-required-1)
-    - [3. Convert to TXT (optional)](#3-convert-to-txt-optional-1)
-    - [4. Build index](#4-build-index-1)
-    - [5. Merge indexes](#5-merge-indexes-1)
+    - [Decrypt PDFs](#1-decrypt-pdfs-as-required-1)
+    - [Extract text from images](#2-extract-text-from-images-as-required-1)
+    - [Convert to TXT](#3-convert-to-txt-optional-1)
+    - [Build index](#4-build-index-1)
+    - [Merge indices](#5-merge-indices-1)
 
 ## Overview
 
@@ -112,7 +112,7 @@ Recommended Settings:
 - `-r`  
   Regex filter for accepted tokens
 
-#### 5. Merge indexes
+#### 5. Merge indices
 ```bash
 .venv/bin/python index_merge.py -o index.txt -F 10 index_1.txt index_2.txt index_n.txt
 ```
@@ -200,7 +200,7 @@ Recommended Settings:
 - `-r`  
   Regex filter for accepted tokens
 
-#### 5. Merge indexes
+#### 5. Merge indices
 ```powershell
 .\.venv\Scripts\python.exe index_merge.py -o index.txt -F 10 index_1.txt index_2.txt index_n.txt
 ```
