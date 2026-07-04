@@ -55,7 +55,7 @@ qpdf --password='PASSWORD' --decrypt book_n.pdf decrypted_n.pdf
 
 #### 2. Extract text from images (as required)
 ```bash
-./.venv/Scripts/python ./extract_image_text.py decrypted_n.pdf processed_n.pdf
+.venv/bin/python extract_img_text.py decrypted_n.pdf processed_n.pdf
 ```
 This is a time-consuming step that is not required for most PDFs.
 Even some PDF that look like they contain images are actually composed of text elements only.
@@ -69,7 +69,7 @@ However, PDF layout is lost during conversion to text and multi-column elements 
 
 #### 4. Build index
 ```bash
-./.venv/Scripts/python ./build_index.py -v -o 2 -l 2 -L 50 -F 10 -z 4.0 -r '[a-zA-Z0-9 :.&_-]+' text_n.txt index_n.txt
+.venv/bin/python build_index.py -v -o 2 -l 2 -L 50 -F 10 -z 4.0 -r '[a-zA-Z0-9 :.&_-]+' text_n.txt index_n.txt
 ```
 Recommended Settings:
 - `-v`  
@@ -89,7 +89,7 @@ Recommended Settings:
 
 #### 5. Merge indexes
 ```bash
-./.venv/Scripts/python ./index_merge.py -o index.txt -F 10 index_1.txt index_2.txt index_n.txt
+.venv/bin/python index_merge.py -o index.txt -F 10 index_1.txt index_2.txt index_n.txt
 ```
 Recommended Settings:
 - `-F 10`  
